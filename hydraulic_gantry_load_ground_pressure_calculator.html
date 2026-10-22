@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hydraulic Gantry Load & Ground Pressure Analyzer</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for SFD & BMD -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .print-border { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }
+      .print-card { background: white !important; border: 1px solid #cbd5e1 !important; color: black !important; }
+    }
+    input[type=range] { accent-color: #0284c7; }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { opacity: 0.6; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #0f172a; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Top Navigation & Action Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/95 sticky top-0 z-40 backdrop-blur-md px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 bg-gradient-to-br from-sky-500 via-indigo-600 to-amber-500 rounded-xl shadow-lg shadow-sky-950/60 flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-base lg:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+          Gantry Crane Load & Floor Pressure Analyzer
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">Inventory Edition</span>
+        </h1>
+        <p class="text-xs text-slate-400">Inventory database integration &bull; 45&deg; track dispersion &bull; Strictly mm &bull; kg &bull; kN/m²</p>
+      </div>
+    </div>
+
+    <!-- Quick Presets & Header Controls -->
+    <div class="flex flex-wrap items-center gap-2 no-print">
+      <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs">
+        <span class="text-slate-400 text-[11px] px-2 font-medium">Quick Preset:</span>
+        <button onclick="loadPreset('turbine180')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-sky-400 font-medium transition text-[11px]">180t Rotor</button>
+        <button onclick="loadPreset('transformer85')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-amber-400 font-medium transition text-[11px]">85t Trafo</button>
+        <button onclick="loadPreset('press50')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-emerald-400 font-medium transition text-[11px]">50t Press</button>
+      </div>
+
+      <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm">
+        <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Export PDF
+      </button>
+
+      <button onclick="resetDefaults()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition">
+        Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Analysis Workspace -->
+  <main class="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: Inventory Selection & Geometric Controls (5 cols) -->
+    <div class="lg:col-span-5 space-y-4">
+
+      <!-- Analysis Mode Toggle: Option A vs Option B -->
+      <div class="bg-gradient-to-r from-slate-900 to-slate-850 rounded-2xl border border-slate-800 p-3.5 shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Capacity Evaluation Mode
+          </span>
+          <span id="modeBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">Option A Active</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button id="btnModeA" onclick="setMode('A')" class="p-2 rounded-xl border border-sky-500 bg-sky-950/70 text-white font-medium text-left transition flex flex-col justify-between">
+            <span class="font-bold text-sky-400 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span> Option A
+            </span>
+            <span class="text-[11px] text-slate-300 mt-1 leading-tight">With Stage De-Rating Check</span>
+          </button>
+
+          <button id="btnModeB" onclick="setMode('B')" class="p-2 rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:text-white font-medium text-left transition flex flex-col justify-between">
+            <span class="font-bold flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-slate-600"></span> Option B
+            </span>
+            <span class="text-[11px] text-slate-400 mt-1 leading-tight">Floor & Gross Statics Only</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. Lifting Beam Inventory & Payload Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400"></span> 1. Lifting Beam & Hook Payload
+          </h2>
+          <span class="text-[11px] font-mono text-slate-400">Inventory Catalog</span>
+        </div>
+
+        <div class="space-y-3.5 text-xs">
+          <!-- Beam Selection Dropdown -->
+          <div>
+            <label for="select_beam" class="font-medium text-slate-300 block mb-1">Select Lifting Beam from Inventory</label>
+            <select id="select_beam" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 focus:outline-none custom-scroll" onchange="onSelectBeam()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Beam Geometry and Specs Display / Overrides -->
+          <div class="grid grid-cols-2 gap-2.5 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 font-mono text-[11px]">
+            <div>
+              <span class="text-slate-500 block text-[10px] uppercase font-sans">Profile & Cross-Section</span>
+              <span id="disp_beam_profile" class="font-bold text-sky-400 text-xs">HEM 600</span>
+              <span id="disp_beam_dims" class="text-slate-400 block text-[10px]">305 &times; 620 mm</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px] uppercase font-sans">Beam Max Hard-Cap Limit</span>
+              <span id="disp_beam_cap_kg" class="font-bold text-amber-300 text-xs">230000 kg</span>
+              <span id="disp_beam_cap_t" class="text-slate-400 block text-[10px]">(230.0 t)</span>
+            </div>
+          </div>
+
+          <!-- Span (L) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_L" class="font-medium text-slate-300">Gantry Span <span class="text-sky-400 font-mono">(L)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_L_val" class="font-bold text-white text-sm">8000</span> mm
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_L" min="1500" max="20000" step="50" value="8000" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('L', this.value)">
+              <input type="number" id="input_L" value="8000" step="50" min="500" max="30000" class="w-24 px-2 py-1 bg-slate-950 border border-slate-700 rounded-md text-right font-mono text-white text-xs focus:border-sky-500 focus:outline-none" oninput="syncParam('L', this.value)">
+            </div>
+          </div>
+
+          <!-- Hook Position (x) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_x" class="font-medium text-slate-300">Hook Position / Offset from Left <span class="text-amber-400 font-mono">(x)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_x_val" class="font-bold text-amber-400 text-sm">2500</span> mm <span class="text-slate-500 text-[11px]">(<span id="label_x_pct">31%</span> of span)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_x" min="0" max="8000" step="50" value="2500" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('x', this.value)">
+              <input type="number" id="input_x" value="2500" step="50" min="0" max="30000" class="w-24 px-2 py-1 bg-slate-950 border border-slate-700 rounded-md text-right font-mono text-amber-300 text-xs focus:border-amber-500 focus:outline-none" oninput="syncParam('x', this.value)">
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <span>Support A (0 mm)</span>
+              <button onclick="centerHook()" class="text-sky-400 hover:text-sky-300 underline font-sans">Center Hook (L / 2)</button>
+              <span>Support B (<span id="label_x_max">8000 mm</span>)</span>
+            </div>
+          </div>
+
+          <!-- Suspended Load (SWL) -->
+          <div class="pt-2 border-t border-slate-800">
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_P_kg" class="font-medium text-slate-300">Suspended Hook Payload <span class="text-amber-400 font-mono">(SWL)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_P_kg" class="font-bold text-amber-300 text-sm">45000</span> kg <span class="text-slate-500 text-[11px]">(<span id="label_P_t">45.0</span> t)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_P_kg" min="0" max="300000" step="500" value="45000" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('P_kg', this.value)">
+              <input type="number" id="input_P_kg" value="45000" step="250" min="0" class="w-24 px-2 py-1 bg-slate-950 border border-slate-700 rounded-md text-right font-mono text-amber-300 text-xs focus:border-amber-500 focus:outline-none" oninput="syncParam('P_kg', this.value)">
+            </div>
+          </div>
+
+          <!-- Dynamic Factor and Beam Weight -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label for="input_phi" class="font-medium text-slate-300 flex justify-between items-center mb-1">
+                <span>Dynamic Factor (&phi;)</span>
+                <span id="label_phi" class="text-sky-400 font-mono font-bold">1.10</span>
+              </label>
+              <select id="input_phi" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-md text-white font-mono text-xs focus:border-sky-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="1.00">1.00 (Static)</option>
+                <option value="1.05">1.05 (Rigid slow)</option>
+                <option value="1.10" selected>1.10 (Standard Lift)</option>
+                <option value="1.15">1.15 (EN 1991-3 normal)</option>
+                <option value="1.25">1.25 (Rigorous dynamic)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="input_W_beam_kg" class="font-medium text-slate-300 block mb-1">Lifting Beam Weight</label>
+              <div class="flex items-center gap-1.5">
+                <input type="number" id="input_W_beam_kg" value="3411" step="20" min="0" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-md text-right font-mono text-white text-xs focus:border-sky-500 focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-400 font-mono text-xs">kg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Hydraulic Gantry Towers Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-indigo-400"></span> 2. Hydraulic Gantry Units (2-Point Setup)
+          </h2>
+          <span class="text-[11px] font-mono text-slate-400">Inventory</span>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label for="select_gantry" class="font-medium text-slate-300 block mb-1">Select Gantry Model from Inventory</label>
+            <select id="select_gantry" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-indigo-500 focus:outline-none custom-scroll" onchange="onSelectGantry()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Gantry Extension Stage (Controlled by Option A / B) -->
+          <div id="stageSelectorContainer" class="p-2.5 rounded-xl bg-slate-950 border border-indigo-900/40 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">Cylinder Extension Stage</span>
+              <span id="stageStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800">Stage 1 Active</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1.5 font-mono text-xs">
+              <button type="button" id="btnStage1" onclick="setStage(1)" class="py-1.5 px-2 rounded-lg bg-indigo-600 text-white font-bold transition text-center shadow-sm">
+                Stage 1
+              </button>
+              <button type="button" id="btnStage2" onclick="setStage(2)" class="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800">
+                Stage 2
+              </button>
+              <button type="button" id="btnStage3" onclick="setStage(3)" class="py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800">
+                Stage 3
+              </button>
+            </div>
+
+            <div class="flex justify-between items-center text-[11px] font-mono text-slate-400 pt-1">
+              <span>Stage Height: <span id="disp_stage_height" class="text-white font-bold">5857 mm</span></span>
+              <span>2-Pt Cap: <span id="disp_stage_cap" class="text-amber-400 font-bold">310000 kg</span></span>
+            </div>
+
+            <div id="missingStageAlert" class="hidden p-2 rounded bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] leading-tight">
+              &bull; No explicit 2-point rating published in inventory for this model. Standard 50% rule is not enforced per engineering policy.
+            </div>
+          </div>
+
+          <!-- Base Geometry (mm) and Weights (kg) -->
+          <div class="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+            <div>
+              <span class="text-slate-500 block text-[10px] font-sans">Base Length</span>
+              <input type="number" id="input_base_length_mm" value="2090" step="10" min="500" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px] font-sans">Base Width</span>
+              <input type="number" id="input_base_width_mm" value="1560" step="10" min="200" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px] font-sans">Lift Unit Wt</span>
+              <input type="number" id="input_W_lift_unit_kg" value="6260" step="20" min="0" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 font-mono text-[11px] pt-1">
+            <div>
+              <label for="input_W_crown_kg" class="font-medium text-slate-300 block mb-0.5 text-xs font-sans">Crown Unit Wt (per side)</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="input_W_crown_kg" value="1800" step="25" min="0" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-400">kg</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_W_shift_kg" class="font-medium text-slate-300 block mb-0.5 text-xs font-sans">Side Shift / Rigging Wt</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="input_W_shift_kg" value="170" step="10" min="0" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-400">kg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tracks & Floor Bearing Dispersion (45-degree rule) -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 3. Tracks & Floor Bearing (45&deg; Dispersion)
+          </h2>
+          <span class="text-[11px] font-mono text-slate-400">Strictly kN/m²</span>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label for="select_track" class="font-medium text-slate-300 block mb-1">Select Track System & Section</label>
+            <select id="select_track" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-emerald-500 focus:outline-none custom-scroll" onchange="onSelectTrack()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Track Dimensions & Weight Input -->
+          <div class="grid grid-cols-3 gap-2 font-mono text-[11px]">
+            <div>
+              <label class="text-slate-400 block text-[10px] font-sans">Track Height (h_track)</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="input_h_track_mm" value="300" step="10" min="50" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-slate-400 block text-[10px] font-sans">Track Width (W_track)</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="input_w_track_mm" value="1225" step="10" min="100" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-slate-400 block text-[10px] font-sans">Track Unit Wt</label>
+              <div class="flex items-center gap-1">
+                <input type="number" id="input_W_track_unit_kg" value="1620" step="10" min="0" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded text-right text-white focus:outline-none" oninput="runAnalysis()">
+                <span class="text-slate-500 text-[10px]">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 45-degree Ground Load Dispersion Formula Card -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-slate-400">Effective Floor Bearing Length (L_eff):</span>
+              <span id="disp_L_eff" class="font-bold text-emerald-400 text-xs">2690 mm</span>
+            </div>
+            <p class="text-[10px] text-slate-500 font-mono">
+              Formula: L_eff = L_base (${'{L_base}'}) + 2 &times; h_track (${'{h_track}'}) = <span id="formula_disp_calc">2090 + 2&times;300 = 2690 mm</span>
+            </p>
+            <div class="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-slate-800/80">
+              <span class="text-slate-400">Calculated Contact Area (A_eff):</span>
+              <span id="disp_A_eff" class="font-bold text-emerald-300 text-xs">3.295 m²</span>
+            </div>
+          </div>
+
+          <!-- Allowable Floor Bearing Limit -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_allowable_q" class="font-medium text-slate-300">Allowable Floor Limit <span class="text-amber-400 font-mono">(q_allow)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_allowable_q_val" class="font-bold text-amber-300 text-sm">250</span> kN/m²
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_allowable_q" min="20" max="1200" step="10" value="250" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('allowable_q', this.value)">
+              <input type="number" id="input_allowable_q" value="250" step="5" min="10" max="3000" class="w-24 px-2 py-1 bg-slate-950 border border-slate-700 rounded-md text-right font-mono text-amber-300 text-xs focus:border-amber-500 focus:outline-none" oninput="syncParam('allowable_q', this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Visualizer, Gauges, SFD/BMD & Verification Table (7 cols) -->
+    <div class="lg:col-span-7 space-y-4">
+
+      <!-- Dynamic Asymmetry Warning Banner -->
+      <div id="imbalanceAlert" class="hidden p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 flex items-start gap-3 transition">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="text-xs space-y-0.5">
+          <p class="font-bold uppercase tracking-wider text-amber-300">Eccentric Load Distribution</p>
+          <p id="imbalanceText" class="text-slate-300 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- Capacity Gate 1: Lifting Beam Hard-Cap Utilization Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Lifting Beam Capacity Check (Hard Ceiling)</h3>
+          </div>
+          <span id="badgeBeamCap" class="font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            PASS (20% Utilized)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs mt-3">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-500 block text-[10px] uppercase font-sans">Factored Hook Load</span>
+            <span id="card_beam_factored_kg" class="text-amber-400 font-bold text-sm">49500 kg</span>
+            <span id="card_beam_factored_t" class="text-slate-400 block text-[10px]">49.5 t (&phi;=1.10)</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-500 block text-[10px] uppercase font-sans">Beam Max Ceiling</span>
+            <span id="card_beam_max_kg" class="text-white font-bold text-sm">230000 kg</span>
+            <span id="card_beam_max_t" class="text-slate-400 block text-[10px]">230.0 t</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-500 block text-[10px] uppercase font-sans">Peak Bending (Mid)</span>
+            <span id="card_beam_moment" class="text-sky-300 font-bold text-sm">0.0 kNm</span>
+            <span class="text-slate-400 block text-[10px]">Max envelope</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span class="text-slate-500 block text-[10px] uppercase font-sans">Reserve Margin</span>
+            <span id="card_beam_reserve_kg" class="text-emerald-400 font-bold text-sm">+180500 kg</span>
+            <span id="card_beam_reserve_t" class="text-slate-400 block text-[10px]">Safe buffer</span>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+            <div id="barBeamUtil" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 20%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capacity Gate 2: Gantry Stage 2-Point Capacity (Option A only) -->
+      <div id="gantryCapacityCard" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl transition">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Gantry Tower Stage Rating (2-Point)</h3>
+          </div>
+          <span id="badgeGantryStage" class="font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            PASS (Stage 1)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-3">
+          <!-- Tower A Stage Check -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-sky-400">Tower A Crown Load</span>
+              <span id="val_util_tower_A" class="font-mono font-bold text-white">0%</span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono text-xs">
+              <span class="text-slate-400">Applied: <span id="val_tower_applied_A" class="text-white font-bold">0 kg</span></span>
+              <span class="text-slate-400">Rating: <span id="val_tower_limit_A" class="text-indigo-400 font-bold">0 kg</span></span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="barTowerA" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Tower B Stage Check -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-indigo-400">Tower B Crown Load</span>
+              <span id="val_util_tower_B" class="font-mono font-bold text-white">0%</span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono text-xs">
+              <span class="text-slate-400">Applied: <span id="val_tower_applied_B" class="text-white font-bold">0 kg</span></span>
+              <span class="text-slate-400">Rating: <span id="val_tower_limit_B" class="text-indigo-400 font-bold">0 kg</span></span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="barTowerB" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capacity Gate 3: Ground Bearing Pressure Gauges (Strictly kN/m²) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Track A Floor Pressure -->
+        <div id="cardGaugeA" class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-sky-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400"></span> Track A Floor Pressure
+              </span>
+              <span id="badgeUtilA" class="font-mono text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                0%
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono">
+              <span class="text-xs text-slate-400">Actual Pressure (q_A):</span>
+              <span id="val_q_A" class="text-2xl font-bold text-white">0.0 <span class="text-xs text-sky-400 font-sans">kN/m²</span></span>
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 mt-1 flex justify-between">
+              <span>Total Footprint Force:</span>
+              <span id="disp_F_base_A" class="text-white font-bold">0 kg (0.0 kN)</span>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div id="barUtilA" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-1.5">
+              <span>0 kN/m²</span>
+              <span id="label_gauge_limit_A">Limit: 250 kN/m²</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track B Floor Pressure -->
+        <div id="cardGaugeB" class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between shadow-xl">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-indigo-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-indigo-400"></span> Track B Floor Pressure
+              </span>
+              <span id="badgeUtilB" class="font-mono text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                0%
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono">
+              <span class="text-xs text-slate-400">Actual Pressure (q_B):</span>
+              <span id="val_q_B" class="text-2xl font-bold text-white">0.0 <span class="text-xs text-indigo-400 font-sans">kN/m²</span></span>
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 mt-1 flex justify-between">
+              <span>Total Footprint Force:</span>
+              <span id="disp_F_base_B" class="text-white font-bold">0 kg (0.0 kN)</span>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div id="barUtilB" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-1.5">
+              <span>0 kN/m²</span>
+              <span id="label_gauge_limit_B">Limit: 250 kN/m²</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive SVG Gantry Schematic with 45° Dispersion Wedges -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-white">System Free-Body Schematic &bull; 45&deg; Track Dispersion</h3>
+          </div>
+          <span class="text-[11px] text-slate-400 font-mono hidden sm:inline">&bull; Drag hook to change offset</span>
+        </div>
+
+        <div class="w-full overflow-hidden bg-slate-950 rounded-xl border border-slate-800 relative select-none">
+          <svg id="gantrySvg" class="w-full h-80 cursor-ew-resize" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="soilHatch" width="8" height="8" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="8" x2="8" y2="0" stroke="#1e293b" stroke-width="1.5" />
+              </pattern>
+              <marker id="arrowUpSky" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+              </marker>
+              <marker id="arrowUpIndigo" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 10 L 5 0 L 10 10 z" fill="#6366f1" />
+              </marker>
+              <marker id="arrowDownAmber" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 5 10 L 10 0 z" fill="#f59e0b" />
+              </marker>
+            </defs>
+
+            <!-- Foundation & Floor Line -->
+            <rect x="0" y="325" width="800" height="55" fill="url(#soilHatch)" />
+            <line x1="0" y1="325" x2="800" y2="325" stroke="#475569" stroke-width="2" />
+
+            <!-- Dynamic SVG elements drawn by JS -->
+            <g id="svgLayer"></g>
+          </svg>
+          <div class="absolute bottom-2 left-3 text-[10px] text-slate-500 font-mono">
+            All dimensions in mm &bull; Pressures strictly in kN/m²
+          </div>
+        </div>
+      </div>
+
+      <!-- Bending Moment & Shear Force Diagram (SFD / BMD) -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800 mb-3">
+          <div class="flex items-center gap-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-white">Beam Internal Forces</h3>
+            <span class="text-xs font-mono text-amber-400" id="label_M_max_val">M_max: 0.0 kNm</span>
+            <span class="text-xs font-mono text-slate-400" id="label_V_max_val">V_max: 0.0 kN</span>
+          </div>
+
+          <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs">
+            <button id="btnTabBMD" onclick="switchDiagramTab('bmd')" class="px-3 py-1 rounded bg-sky-600 text-white font-medium transition">Bending Moment (BMD)</button>
+            <button id="btnTabSFD" onclick="switchDiagramTab('sfd')" class="px-3 py-1 rounded text-slate-400 hover:text-white font-medium transition">Shear Force (SFD)</button>
+          </div>
+        </div>
+
+        <div class="h-44 w-full relative">
+          <canvas id="internalForceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Structural Verification & Comprehensive Breakdown Table -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl print-border">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-white">Engineering Equilibrium & Load Breakdown</h3>
+          <span class="text-[11px] font-mono text-slate-400">&Sigma;V = 0 &bull; Ground Limits in kN/m²</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                <th class="py-2 px-2.5">Component / Level</th>
+                <th class="py-2 px-2 text-right">Side A Reaction</th>
+                <th class="py-2 px-2 text-right">Side B Reaction</th>
+                <th class="py-2 px-2 text-right">Total Load</th>
+                <th class="py-2 px-2.5 text-right">Status / Metric</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80 font-mono">
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300">Factored Payload (&times; &phi; = <span class="tb_phi_tag text-sky-400">1.10</span>)</td>
+                <td class="py-2.5 px-2 text-right text-amber-300" id="tb_hook_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-amber-300" id="tb_hook_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-white font-bold" id="tb_hook_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400">At Hook (x mm)</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300">Lifting Beam Self-Weight</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_beam_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_beam_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_beam_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400">Span UDL (L/2)</td>
+              </tr>
+              <tr class="bg-sky-950/20 font-semibold text-sky-300">
+                <td class="py-2.5 px-2.5 font-sans">Beam Crown Reaction (R_crown)</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-sky-400 font-medium">Crown Top Level</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300">Crown Unit & Shift Rigging</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_crown_wt_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_crown_wt_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_crown_wt_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400">Header Assembly</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300">Gantry Lift Unit Self-Weight</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_gantry_unit_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_gantry_unit_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_gantry_unit_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400">Tower Deadweight</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300">Track Unit Weight</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_track_wt_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_track_wt_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_track_wt_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400">Runway Element</td>
+              </tr>
+              <tr class="bg-amber-950/25 font-bold text-amber-300">
+                <td class="py-2.5 px-2.5 font-sans">Total Floor Load (F_base)</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_A">0 kg</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_B">0 kg</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_tot">0 kg</td>
+                <td class="py-2.5 px-2.5 text-right text-amber-400">Track Base Contact</td>
+              </tr>
+              <tr class="text-slate-200">
+                <td class="py-2.5 px-2.5 font-sans font-medium">Floor Contact Area (45&deg; spread)</td>
+                <td class="py-2.5 px-2 text-right font-bold text-emerald-400" id="tb_area_A">0.000 m²</td>
+                <td class="py-2.5 px-2 text-right font-bold text-emerald-400" id="tb_area_B">0.000 m²</td>
+                <td class="py-2.5 px-2 text-right text-slate-400">&mdash;</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400 font-sans" id="tb_dims_label">0 &times; 0 mm</td>
+              </tr>
+              <tr class="bg-slate-950 font-bold">
+                <td class="py-2.5 px-2.5 font-sans text-white">Actual Floor Pressure (q)</td>
+                <td class="py-2.5 px-2 text-right text-sm" id="tb_press_A">0.0 kN/m²</td>
+                <td class="py-2.5 px-2 text-right text-sm" id="tb_press_B">0.0 kN/m²</td>
+                <td class="py-2.5 px-2 text-right text-slate-400">&mdash;</td>
+                <td class="py-2.5 px-2.5 text-right text-amber-300" id="tb_allow_label">Limit: 250 kN/m²</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-400">Floor Utilization %</td>
+                <td class="py-2.5 px-2 text-right font-bold" id="tb_util_A">0%</td>
+                <td class="py-2.5 px-2 text-right font-bold" id="tb_util_B">0%</td>
+                <td class="py-2.5 px-2 text-right text-slate-400">&mdash;</td>
+                <td class="py-2.5 px-2.5 text-right font-bold" id="tb_final_status">PASS</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Engineering Statics & Inventory Engine -->
+  <script>
+    const G_CONST = 9.80665; // m/s²
+
+    // 1. INVENTORY DATABASE (All lengths in mm, weights in kg, capacities in kg)
+    const INVENTORY_BEAMS = [
+      { id: "601001/002", profile: "HEB 300", L: 2290, W: 300, H: 300, weight: 255, cap: 58400 },
+      { id: "601003/004", profile: "HEB 300", L: 3700, W: 300, H: 300, weight: 415, cap: 58400 },
+      { id: "601005/006", profile: "HEM 220", L: 4003, W: 226, H: 240, weight: 440, cap: 60000 },
+      { id: "601009-012", profile: "HEB 160", L: 4500, W: 160, H: 160, weight: 180, cap: 10000 },
+      { id: "601013/014", profile: "HEB 300", L: 4707, W: 300, H: 316, weight: 525, cap: 58400 },
+      { id: "601015/016", profile: "HEM 220", L: 6006, W: 226, H: 240, weight: 690, cap: 60000 },
+      { id: "601017",     profile: "HEB 300", L: 6000, W: 300, H: 300, weight: 675, cap: 58400 },
+      { id: "601018/019", profile: "HEB 400", L: 6006, W: 300, H: 400, weight: 880, cap: 80000 },
+      { id: "601020/021", profile: "HEM 400", L: 6000, W: 307, H: 432, weight: 2210, cap: 200000 },
+      { id: "601022/023", profile: "2x INP 400", L: 6095, W: 313, H: 400, weight: 1095, cap: 200000 },
+      { id: "601024/025", profile: "HEM 450", L: 6830, W: 307, H: 478, weight: 2654, cap: 220000 },
+      { id: "601026-028", profile: "HEB 200", L: 7000, W: 200, H: 200, weight: 415, cap: 19000 },
+      { id: "601029/030", profile: "HEM 600", L: 8000, W: 305, H: 620, weight: 3411, cap: 230000, default: true },
+      { id: "601031/032", profile: "HEB 600", L: 8520, W: 300, H: 600, weight: 1900, cap: 200000 },
+      { id: "601033-036", profile: "HEM 400", L: 9000, W: 307, H: 432, weight: 3105, cap: 190000 },
+      { id: "601037/038", profile: "HEB 600", L: 10000, W: 300, H: 600, weight: 3182, cap: 180000 },
+      { id: "601039/040", profile: "HEM 1000", L: 12240, W: 302, H: 1008, weight: 6595, cap: 290000 },
+      { id: "601041",     profile: "HEM 300", L: 12500, W: 310, H: 340, weight: 3050, cap: 55000 },
+      { id: "601042/043", profile: "HEB 500", L: 12642, W: 300, H: 500, weight: 2350, cap: 115000 },
+      { id: "601044/045", profile: "W 310 H 800", L: 13000, W: 310, H: 800, weight: 5339, cap: 230000 },
+      { id: "601046/047", profile: "HEB 650", L: 13000, W: 300, H: 650, weight: 2920, cap: 220000 },
+      { id: "601048/049", profile: "HEB 600", L: 13410, W: 300, H: 600, weight: 6140, cap: 200000 },
+      { id: "309406",     profile: "Equalizer Beam", L: 7340, W: 480, H: 900, weight: 4000, cap: 105000 },
+      { id: "308496",     profile: "Press Lifting Frame", L: 3820, W: 2400, H: 384, weight: 1520, cap: 55000 },
+      { id: "CUSTOM",     profile: "Custom Beam", L: 8000, W: 300, H: 600, weight: 3000, cap: 200000 }
+    ];
+
+    const INVENTORY_GANTRIES = [
+      {
+        id: "308302", model: "Lift Systems 36T", unitWt: 600, retractedH: 1848, baseW: 711, baseL: 1319,
+        stages: [
+          { num: 1, H: 2865, cap2pt: 18000 },
+          { num: 2, H: 3880, cap2pt: 16500 },
+          { num: 3, H: 4890, cap2pt: 13500 }
+        ]
+      },
+      {
+        id: "308303 / 308488", model: "Lift Systems 70T", unitWt: 1500, retractedH: 2945, baseW: 1190, baseL: 1675,
+        stages: [
+          { num: 1, H: 3945, cap2pt: 35000 },
+          { num: 2, H: 6874, cap2pt: 15450 },
+          { num: 3, H: 6874, cap2pt: null }
+        ]
+      },
+      {
+        id: "GREINER_180", model: "Greiner 180T", unitWt: 1650, retractedH: 2390, baseW: 915, baseL: 1300,
+        stages: [
+          { num: 1, H: 4071, cap2pt: 45000 },
+          { num: 2, H: 5695, cap2pt: 30000 },
+          { num: 3, H: 7290, cap2pt: 17500 }
+        ]
+      },
+      {
+        id: "308301+", model: "Lift Systems 360T", unitWt: 2500, retractedH: 3029, baseW: 1196, baseL: 1715,
+        stages: [
+          { num: 1, H: 4828, cap2pt: 182000 },
+          { num: 2, H: 6604, cap2pt: 137000 },
+          { num: 3, H: 8383, cap2pt: 80000 }
+        ]
+      },
+      {
+        id: "308404", model: "Greiner 620T", unitWt: 6260, retractedH: 3340, baseW: 1560, baseL: 2090, default: true,
+        stages: [
+          { num: 1, H: 5857, cap2pt: 310000 },
+          { num: 2, H: 8383, cap2pt: 260000 },
+          { num: 3, H: 10877, cap2pt: 150000 }
+        ]
+      },
+      {
+        id: "308505/506", model: "Lift Systems 620T II", unitWt: 7750, retractedH: 3375, baseW: 1560, baseL: 2200,
+        stages: [
+          { num: 1, H: 5725, cap2pt: null },
+          { num: 2, H: 8160, cap2pt: null },
+          { num: 3, H: 10625, cap2pt: null }
+        ]
+      },
+      {
+        id: "308423/425", model: "Greiner 620XL T", unitWt: 8530, retractedH: 3850, baseW: 1560, baseL: 2220,
+        stages: [
+          { num: 1, H: 6629, cap2pt: null },
+          { num: 2, H: 9457, cap2pt: null },
+          { num: 3, H: 12345, cap2pt: null }
+        ]
+      },
+      {
+        id: "308426", model: "Lift Systems 720T", unitWt: 3300, retractedH: 3016, baseW: 1194, baseL: 1867,
+        stages: [
+          { num: 1, H: 4854, cap2pt: 360000 },
+          { num: 2, H: 6624, cap2pt: 270000 },
+          { num: 3, H: 8380, cap2pt: 180000 }
+        ]
+      },
+      {
+        id: "308422/424", model: "Greiner 1000T", unitWt: 7600, retractedH: 3372, baseW: 1440, baseL: 2150,
+        stages: [
+          { num: 1, H: 5650, cap2pt: 500000 },
+          { num: 2, H: 7980, cap2pt: 450000 },
+          { num: 3, H: 10417, cap2pt: 270000 }
+        ]
+      },
+      {
+        id: "CUSTOM_GANTRY", model: "Custom Gantry", unitWt: 5000, retractedH: 3000, baseW: 1200, baseL: 1800,
+        stages: [
+          { num: 1, H: 5000, cap2pt: 200000 },
+          { num: 2, H: 7500, cap2pt: 150000 },
+          { num: 3, H: 10000, cap2pt: 100000 }
+        ]
+      }
+    ];
+
+    const INVENTORY_TRACKS = [
+      { id: "T1_3M", name: "Track Type 1 - 3M (L=3000)", H: 300, L: 3000, W_default: 1225, weight: 1160 },
+      { id: "T1_4M", name: "Track Type 1 - 4M (L=4000)", H: 300, L: 4000, W_default: 1225, weight: 1620, default: true },
+      { id: "T1_6M", name: "Track Type 1 - 6.2M (L=6200)", H: 300, L: 6200, W_default: 1225, weight: 2500 },
+      { id: "T2_2M", name: "Track Type 2 - 2M (L=2000)", H: 300, L: 2000, W_default: 1210, weight: 770 },
+      { id: "T2_3M", name: "Track Type 2 - 3M (L=3000)", H: 300, L: 3000, W_default: 1211, weight: 1220 },
+      { id: "T2_4M", name: "Track Type 2 - 4M (L=4000)", H: 300, L: 4000, W_default: 1212, weight: 1600 },
+      { id: "T2_5M", name: "Track Type 2 - 5M (L=5000)", H: 300, L: 5000, W_default: 1213, weight: 2100 },
+      { id: "T2_6M", name: "Track Type 2 - 6M (L=6000)", H: 300, L: 6000, W_default: 1214, weight: 2400 },
+      { id: "T7_3M", name: "Track Type 7 - 3M (L=3000)", H: 300, L: 3000, W_default: 1550, weight: 1100 },
+      { id: "T7_4M", name: "Track Type 7 - 4M (L=4000)", H: 300, L: 4000, W_default: 1550, weight: 1200 },
+      { id: "T7_6M", name: "Track Type 7 - 6M (L=6000)", H: 300, L: 6000, W_default: 1550, weight: 1400 },
+      { id: "T4_3M", name: "Track Type 4 - 3M (L=3000, H=500)", H: 500, L: 3000, W_default: 1550, weight: 1240 },
+      { id: "T4_4M", name: "Track Type 4 - 4M (L=4000, H=500)", H: 500, L: 4000, W_default: 1550, weight: 1540 },
+      { id: "T4_5M", name: "Track Type 4 - 5M (L=5000, H=500)", H: 500, L: 5000, W_default: 1550, weight: 1860 },
+      { id: "CUSTOM_TRACK", name: "Custom Track Profile", H: 300, L: 4000, W_default: 1200, weight: 1500 }
+    ];
+
+    // State Variables
+    let currentMode = 'A'; // 'A' (with stage de-rating) or 'B' (gross statics only)
+    let currentStage = 1; // 1, 2, 3
+    let currentDiagramTab = 'bmd';
+    let chartInstance = null;
+    let isDraggingHook = false;
+
+    // Formatting Helpers
+    function fmt(val, dec = 1) {
+      if (val === null || isNaN(val)) return '—';
+      return Number(Math.round(val + 'e' + dec) + 'e-' + dec).toFixed(dec);
+    }
+    function fmtInt(val) {
+      if (val === null || isNaN(val)) return '—';
+      return Math.round(val).toLocaleString();
+    }
+
+    // Populate UI Dropdowns on Startup
+    function initDropdowns() {
+      // 1. Lifting Beams
+      const beamSelect = document.getElementById('select_beam');
+      beamSelect.innerHTML = '';
+      INVENTORY_BEAMS.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = `${b.id} | ${b.profile} (L=${b.L}mm, Max ${b.cap/1000}t)`;
+        if (b.default) opt.selected = true;
+        beamSelect.appendChild(opt);
+      });
+
+      // 2. Gantries
+      const gantrySelect = document.getElementById('select_gantry');
+      gantrySelect.innerHTML = '';
+      INVENTORY_GANTRIES.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = `${g.id} | ${g.model} (${g.unitWt/1000}t, Base ${g.baseL}x${g.baseW}mm)`;
+        if (g.default) opt.selected = true;
+        gantrySelect.appendChild(opt);
+      });
+
+      // 3. Tracks
+      const trackSelect = document.getElementById('select_track');
+      trackSelect.innerHTML = '';
+      INVENTORY_TRACKS.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = `${t.name} (H=${t.H}mm, W=${t.W_default}mm, ${t.weight}kg)`;
+        if (t.default) opt.selected = true;
+        trackSelect.appendChild(opt);
+      });
+    }
+
+    // Dropdown Change Handlers
+    function onSelectBeam() {
+      const beamId = document.getElementById('select_beam').value;
+      const beam = INVENTORY_BEAMS.find(b => b.id === beamId);
+      if (!beam) return;
+
+      document.getElementById('disp_beam_profile').textContent = `${beam.profile} (${beam.id})`;
+      document.getElementById('disp_beam_dims').textContent = `${beam.W} × ${beam.H} mm`;
+      document.getElementById('disp_beam_cap_kg').textContent = `${fmtInt(beam.cap)} kg`;
+      document.getElementById('disp_beam_cap_t').textContent = `(${fmt(beam.cap / 1000.0, 1)} t)`;
+
+      document.getElementById('input_W_beam_kg').value = beam.weight;
+      syncParam('L', beam.L);
+    }
+
+    function onSelectGantry() {
+      const gantryId = document.getElementById('select_gantry').value;
+      const gantry = INVENTORY_GANTRIES.find(g => g.id === gantryId);
+      if (!gantry) return;
+
+      document.getElementById('input_base_length_mm').value = gantry.baseL;
+      document.getElementById('input_base_width_mm').value = gantry.baseW;
+      document.getElementById('input_W_lift_unit_kg').value = gantry.unitWt;
+
+      updateStageDisplay();
+      runAnalysis();
+    }
+
+    function onSelectTrack() {
+      const trackId = document.getElementById('select_track').value;
+      const track = INVENTORY_TRACKS.find(t => t.id === trackId);
+      if (!track) return;
+
+      document.getElementById('input_h_track_mm').value = track.H;
+      document.getElementById('input_w_track_mm').value = track.W_default;
+      document.getElementById('input_W_track_unit_kg').value = track.weight;
+
+      runAnalysis();
+    }
+
+    // Mode Selector: Option A vs Option B
+    function setMode(mode) {
+      currentMode = mode;
+      const btnA = document.getElementById('btnModeA');
+      const btnB = document.getElementById('btnModeB');
+      const badge = document.getElementById('modeBadge');
+      const gantryCapCard = document.getElementById('gantryCapacityCard');
+      const stageContainer = document.getElementById('stageSelectorContainer');
+
+      if (mode === 'A') {
+        btnA.className = 'p-2 rounded-xl border border-sky-500 bg-sky-950/70 text-white font-medium text-left transition flex flex-col justify-between';
+        btnB.className = 'p-2 rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:text-white font-medium text-left transition flex flex-col justify-between';
+        badge.textContent = 'Option A Active';
+        badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800';
+        gantryCapCard.classList.remove('opacity-40', 'pointer-events-none');
+        stageContainer.classList.remove('opacity-40', 'pointer-events-none');
+      } else {
+        btnB.className = 'p-2 rounded-xl border border-sky-500 bg-sky-950/70 text-white font-medium text-left transition flex flex-col justify-between';
+        btnA.className = 'p-2 rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:text-white font-medium text-left transition flex flex-col justify-between';
+        badge.textContent = 'Option B Active (No Stage Check)';
+        badge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700';
+        gantryCapCard.classList.add('opacity-40', 'pointer-events-none');
+        stageContainer.classList.add('opacity-40', 'pointer-events-none');
+      }
+      runAnalysis();
+    }
+
+    // Cylinder Extension Stage Selector
+    function setStage(stageNum) {
+      currentStage = stageNum;
+      [1, 2, 3].forEach(n => {
+        const btn = document.getElementById(`btnStage${n}`);
+        if (n === stageNum) {
+          btn.className = 'py-1.5 px-2 rounded-lg bg-indigo-600 text-white font-bold transition text-center shadow-sm';
+        } else {
+          btn.className = 'py-1.5 px-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800';
+        }
+      });
+      document.getElementById('stageStatusBadge').textContent = `Stage ${stageNum} Active`;
+      updateStageDisplay();
+      runAnalysis();
+    }
+
+    function updateStageDisplay() {
+      const gantryId = document.getElementById('select_gantry').value;
+      const gantry = INVENTORY_GANTRIES.find(g => g.id === gantryId);
+      if (!gantry) return;
+
+      const stageInfo = gantry.stages.find(s => s.num === currentStage) || gantry.stages[0];
+      const alertEl = document.getElementById('missingStageAlert');
+
+      document.getElementById('disp_stage_height').textContent = `${stageInfo.H} mm`;
+
+      if (stageInfo.cap2pt !== null) {
+        document.getElementById('disp_stage_cap').textContent = `${fmtInt(stageInfo.cap2pt)} kg (${fmt(stageInfo.cap2pt/1000, 1)} t)`;
+        alertEl.classList.add('hidden');
+      } else {
+        document.getElementById('disp_stage_cap').textContent = `No 2-Pt Rating`;
+        alertEl.classList.remove('hidden');
+      }
+    }
+
+    // Dual Slider / Numeric Input Sync
+    function syncParam(param, rawVal) {
+      const val = parseFloat(rawVal);
+      if (isNaN(val)) return;
+
+      if (param === 'L') {
+        const clampedL = Math.max(500, val);
+        document.getElementById('input_L').value = Math.round(clampedL);
+        document.getElementById('range_L').value = Math.round(clampedL);
+        document.getElementById('range_x').max = Math.round(clampedL);
+        document.getElementById('label_x_max').textContent = `${Math.round(clampedL)} mm`;
+
+        const curX = parseFloat(document.getElementById('input_x').value);
+        if (curX > clampedL) {
+          syncParam('x', clampedL);
+        }
+      } else if (param === 'x') {
+        const curL = parseFloat(document.getElementById('input_L').value) || 8000;
+        const clampedX = Math.max(0, Math.min(val, curL));
+        document.getElementById('input_x').value = Math.round(clampedX);
+        document.getElementById('range_x').value = Math.round(clampedX);
+      } else if (param === 'P_kg') {
+        const clampedP = Math.max(0, val);
+        document.getElementById('input_P_kg').value = Math.round(clampedP);
+        document.getElementById('range_P_kg').value = Math.round(clampedP);
+      } else if (param === 'allowable_q') {
+        const clampedQ = Math.max(1, val);
+        document.getElementById('input_allowable_q').value = Math.round(clampedQ);
+        document.getElementById('range_allowable_q').value = Math.round(clampedQ);
+      }
+      runAnalysis();
+    }
+
+    function centerHook() {
+      const curL = parseFloat(document.getElementById('input_L').value) || 8000;
+      syncParam('x', Math.round(curL / 2));
+    }
+
+    function resetDefaults() {
+      document.getElementById('select_beam').value = "601029/030";
+      onSelectBeam();
+      document.getElementById('select_gantry').value = "308404";
+      onSelectGantry();
+      document.getElementById('select_track').value = "T1_4M";
+      onSelectTrack();
+      setMode('A');
+      setStage(1);
+      syncParam('P_kg', 45000);
+      syncParam('x', 2500);
+      document.getElementById('input_phi').value = "1.10";
+      document.getElementById('input_W_crown_kg').value = 1800;
+      document.getElementById('input_W_shift_kg').value = 170;
+      syncParam('allowable_q', 250);
+      runAnalysis();
+    }
+
+    function loadPreset(type) {
+      if (type === 'turbine180') {
+        document.getElementById('select_beam').value = "601039/040"; // HEM 1000
+        onSelectBeam();
+        document.getElementById('select_gantry').value = "308422/424"; // Greiner 1000T
+        onSelectGantry();
+        document.getElementById('select_track').value = "T4_5M"; // Track Type 4
+        onSelectTrack();
+        setMode('A');
+        setStage(2);
+        syncParam('P_kg', 180000);
+        centerHook();
+        syncParam('allowable_q', 350);
+      } else if (type === 'transformer85') {
+        document.getElementById('select_beam').value = "601029/030"; // HEM 600
+        onSelectBeam();
+        document.getElementById('select_gantry').value = "308404"; // Greiner 620T
+        onSelectGantry();
+        document.getElementById('select_track').value = "T1_4M";
+        onSelectTrack();
+        setMode('A');
+        setStage(1);
+        syncParam('P_kg', 85000);
+        syncParam('x', 3000);
+        syncParam('allowable_q', 250);
+      } else if (type === 'press50') {
+        document.getElementById('select_beam').value = "308496"; // Press frame
+        onSelectBeam();
+        document.getElementById('select_gantry').value = "308301+"; // LS 360T
+        onSelectGantry();
+        document.getElementById('select_track').value = "T2_4M";
+        onSelectTrack();
+        setMode('A');
+        setStage(1);
+        syncParam('P_kg', 50000);
+        centerHook();
+        syncParam('allowable_q', 200);
+      }
+      runAnalysis();
+    }
+
+    function switchDiagramTab(tab) {
+      currentDiagramTab = tab;
+      const btnBmd = document.getElementById('btnTabBMD');
+      const btnSfd = document.getElementById('btnTabSFD');
+
+      if (tab === 'bmd') {
+        btnBmd.className = 'px-3 py-1 rounded bg-sky-600 text-white font-medium transition';
+        btnSfd.className = 'px-3 py-1 rounded text-slate-400 hover:text-white font-medium transition';
+      } else {
+        btnBmd.className = 'px-3 py-1 rounded text-slate-400 hover:text-white font-medium transition';
+        btnSfd.className = 'px-3 py-1 rounded bg-sky-600 text-white font-medium transition';
+      }
+      runAnalysis();
+    }
+
+    // MAIN STATICS & GROUND BEARING CALCULATION
+    function runAnalysis() {
+      // 1. Inputs Extraction (Dimensions in mm, Masses in kg)
+      const L_mm = Math.max(500, parseFloat(document.getElementById('input_L').value) || 8000);
+      const L_m = L_mm / 1000.0;
+
+      let x_mm = parseFloat(document.getElementById('input_x').value);
+      if (isNaN(x_mm)) x_mm = 0;
+      x_mm = Math.max(0, Math.min(x_mm, L_mm));
+      const x_m = x_mm / 1000.0;
+
+      const phi = parseFloat(document.getElementById('input_phi').value) || 1.10;
+      const P_kg = Math.max(0, parseFloat(document.getElementById('input_P_kg').value) || 0);
+      const W_beam_kg = Math.max(0, parseFloat(document.getElementById('input_W_beam_kg').value) || 0);
+      const W_crown_kg = Math.max(0, parseFloat(document.getElementById('input_W_crown_kg').value) || 0);
+      const W_shift_kg = Math.max(0, parseFloat(document.getElementById('input_W_shift_kg').value) || 0);
+      const W_lift_unit_kg = Math.max(0, parseFloat(document.getElementById('input_W_lift_unit_kg').value) || 0);
+      const W_track_unit_kg = Math.max(0, parseFloat(document.getElementById('input_W_track_unit_kg').value) || 0);
+
+      const base_length_mm = Math.max(100, parseFloat(document.getElementById('input_base_length_mm').value) || 2090);
+      const h_track_mm = Math.max(50, parseFloat(document.getElementById('input_h_track_mm').value) || 300);
+      const w_track_mm = Math.max(100, parseFloat(document.getElementById('input_w_track_mm').value) || 1225);
+      const allowable_q = Math.max(1, parseFloat(document.getElementById('input_allowable_q').value) || 250);
+
+      // Selected Inventory References
+      const beamId = document.getElementById('select_beam').value;
+      const beamObj = INVENTORY_BEAMS.find(b => b.id === beamId) || INVENTORY_BEAMS[0];
+      const gantryId = document.getElementById('select_gantry').value;
+      const gantryObj = INVENTORY_GANTRIES.find(g => g.id === gantryId) || INVENTORY_GANTRIES[0];
+      const stageInfo = gantryObj.stages.find(s => s.num === currentStage) || gantryObj.stages[0];
+
+      // 2. 45-Degree Ground Contact Area Calculation
+      // Effective bearing length on floor: L_eff = Base_Length + 2 * Track_Height
+      const L_eff_mm = base_length_mm + 2 * h_track_mm;
+      const L_eff_m = L_eff_mm / 1000.0;
+      const W_eff_m = w_track_mm / 1000.0;
+      const A_eff_m2 = L_eff_m * W_eff_m;
+
+      document.getElementById('disp_L_eff').textContent = `${Math.round(L_eff_mm)} mm (${fmt(L_eff_m, 2)} m)`;
+      document.getElementById('formula_disp_calc').textContent = `${Math.round(base_length_mm)} + 2×${Math.round(h_track_mm)} = ${Math.round(L_eff_mm)} mm`;
+      document.getElementById('disp_A_eff').textContent = `${fmt(A_eff_m2, 3)} m²`;
+
+      // 3. Statics: Beam Reactions
+      // Factored hook payload + side shift deadweight at offset x
+      const P_factored_kg = (P_kg * phi) + W_shift_kg;
+      const P_factored_kN = (P_factored_kg * G_CONST) / 1000.0;
+
+      // Beam uniform weight
+      const W_beam_kN = (W_beam_kg * G_CONST) / 1000.0;
+      const w_beam_kN_per_m = W_beam_kN / L_m;
+
+      // Reactions at Crown Top Level (R_A and R_B)
+      const R_hook_A_kg = P_factored_kg * ((L_m - x_m) / L_m);
+      const R_hook_B_kg = P_factored_kg * (x_m / L_m);
+      const R_hook_A_kN = (R_hook_A_kg * G_CONST) / 1000.0;
+      const R_hook_B_kN = (R_hook_B_kg * G_CONST) / 1000.0;
+
+      const R_beam_half_kg = W_beam_kg / 2.0;
+      const R_beam_half_kN = W_beam_kN / 2.0;
+
+      const R_crown_A_kg = R_hook_A_kg + R_beam_half_kg;
+      const R_crown_B_kg = R_hook_B_kg + R_beam_half_kg;
+      const R_crown_A_kN = R_hook_A_kN + R_beam_half_kN;
+      const R_crown_B_kN = R_hook_B_kN + R_beam_half_kN;
+
+      // 4. Statics: Base Ground Vertical Reaction (F_base)
+      // Adds Crown Deadweight, Gantry Tower Unit Weight, and Track Unit Weight
+      const base_add_kg = W_crown_kg + W_lift_unit_kg + W_track_unit_kg;
+      const base_add_kN = (base_add_kg * G_CONST) / 1000.0;
+
+      const F_base_A_kg = R_crown_A_kg + base_add_kg;
+      const F_base_B_kg = R_crown_B_kg + base_add_kg;
+      const F_base_A_kN = R_crown_A_kN + base_add_kN;
+      const F_base_B_kN = R_crown_B_kN + base_add_kN;
+
+      // 5. Ground Contact Pressure strictly in kN/m²
+      const q_A_kNm2 = F_base_A_kN / A_eff_m2;
+      const q_B_kNm2 = F_base_B_kN / A_eff_m2;
+
+      const util_floor_A = (q_A_kNm2 / allowable_q) * 100.0;
+      const util_floor_B = (q_B_kNm2 / allowable_q) * 100.0;
+
+      // 6. Capacity Gate 1: Lifting Beam Hard-Cap Ceiling Check
+      const beam_max_cap_kg = beamObj.cap;
+      const applied_on_beam_kg = P_factored_kg; // Payload + shift unit
+      const util_beam = (applied_on_beam_kg / beam_max_cap_kg) * 100.0;
+      const reserve_beam_kg = beam_max_cap_kg - applied_on_beam_kg;
+
+      document.getElementById('card_beam_factored_kg').textContent = `${fmtInt(applied_on_beam_kg)} kg`;
+      document.getElementById('card_beam_factored_t').textContent = `${fmt(applied_on_beam_kg/1000, 1)} t (φ=${phi.toFixed(2)})`;
+      document.getElementById('card_beam_max_kg').textContent = `${fmtInt(beam_max_cap_kg)} kg`;
+      document.getElementById('card_beam_max_t').textContent = `${fmt(beam_max_cap_kg/1000, 1)} t`;
+
+      const reserveEl = document.getElementById('card_beam_reserve_kg');
+      if (reserve_beam_kg >= 0) {
+        reserveEl.textContent = `+${fmtInt(reserve_beam_kg)} kg`;
+        reserveEl.className = 'text-emerald-400 font-bold text-sm';
+      } else {
+        reserveEl.textContent = `${fmtInt(reserve_beam_kg)} kg`;
+        reserveEl.className = 'text-rose-400 font-bold text-sm';
+      }
+      document.getElementById('card_beam_reserve_t').textContent = `${fmt(reserve_beam_kg/1000, 1)} t reserve`;
+
+      const barBeam = document.getElementById('barBeamUtil');
+      const badgeBeam = document.getElementById('badgeBeamCap');
+      barBeam.style.width = Math.min(100, Math.max(0, util_beam)) + '%';
+      if (util_beam > 100) {
+        barBeam.className = 'bg-rose-500 h-2.5 rounded-full transition-all duration-300';
+        badgeBeam.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-rose-950 text-rose-300 border border-rose-800';
+        badgeBeam.textContent = `OVERLOAD (${Math.round(util_beam)}%)`;
+      } else if (util_beam > 85) {
+        barBeam.className = 'bg-amber-500 h-2.5 rounded-full transition-all duration-300';
+        badgeBeam.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-800';
+        badgeBeam.textContent = `CAUTION (${Math.round(util_beam)}%)`;
+      } else {
+        barBeam.className = 'bg-emerald-500 h-2.5 rounded-full transition-all duration-300';
+        badgeBeam.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800';
+        badgeBeam.textContent = `PASS (${Math.round(util_beam)}% Utilized)`;
+      }
+
+      // 7. Capacity Gate 2: Gantry Tower 2-Point Capacity (Option A only)
+      if (currentMode === 'A') {
+        const stageCap = stageInfo.cap2pt;
+        const badgeGantry = document.getElementById('badgeGantryStage');
+
+        if (stageCap !== null) {
+          const util_tower_A = (R_crown_A_kg / stageCap) * 100.0;
+          const util_tower_B = (R_crown_B_kg / stageCap) * 100.0;
+
+          document.getElementById('val_util_tower_A').textContent = `${Math.round(util_tower_A)}%`;
+          document.getElementById('val_util_tower_B').textContent = `${Math.round(util_tower_B)}%`;
+          document.getElementById('val_tower_applied_A').textContent = `${fmtInt(R_crown_A_kg)} kg`;
+          document.getElementById('val_tower_applied_B').textContent = `${fmtInt(R_crown_B_kg)} kg`;
+          document.getElementById('val_tower_limit_A').textContent = `${fmtInt(stageCap)} kg`;
+          document.getElementById('val_tower_limit_B').textContent = `${fmtInt(stageCap)} kg`;
+
+          updateSimpleBar('barTowerA', util_tower_A);
+          updateSimpleBar('barTowerB', util_tower_B);
+
+          const maxTowerUtil = Math.max(util_tower_A, util_tower_B);
+          if (maxTowerUtil > 100) {
+            badgeGantry.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-rose-950 text-rose-300 border border-rose-800';
+            badgeGantry.textContent = `STAGE OVERLOAD (${Math.round(maxTowerUtil)}%)`;
+          } else if (maxTowerUtil > 85) {
+            badgeGantry.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-800';
+            badgeGantry.textContent = `STAGE CAUTION (${Math.round(maxTowerUtil)}%)`;
+          } else {
+            badgeGantry.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800';
+            badgeGantry.textContent = `PASS (Stage ${currentStage} OK)`;
+          }
+        } else {
+          // No explicit 2pt capacity given
+          document.getElementById('val_util_tower_A').textContent = 'N/A';
+          document.getElementById('val_util_tower_B').textContent = 'N/A';
+          document.getElementById('val_tower_applied_A').textContent = `${fmtInt(R_crown_A_kg)} kg`;
+          document.getElementById('val_tower_applied_B').textContent = `${fmtInt(R_crown_B_kg)} kg`;
+          document.getElementById('val_tower_limit_A').textContent = 'No 2-Pt Rating';
+          document.getElementById('val_tower_limit_B').textContent = 'No 2-Pt Rating';
+          badgeGantry.className = 'font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-950 text-amber-300 border border-amber-800';
+          badgeGantry.textContent = 'NO 2-PT RATING PUBLISHED';
+        }
+      }
+
+      // 8. Capacity Gate 3: Floor Pressure Gauges strictly in kN/m²
+      document.getElementById('val_q_A').innerHTML = `${fmt(q_A_kNm2, 1)} <span class="text-xs text-sky-400 font-sans">kN/m²</span>`;
+      document.getElementById('val_q_B').innerHTML = `${fmt(q_B_kNm2, 1)} <span class="text-xs text-indigo-400 font-sans">kN/m²</span>`;
+      document.getElementById('disp_F_base_A').textContent = `${fmtInt(F_base_A_kg)} kg (${fmt(F_base_A_kN, 1)} kN)`;
+      document.getElementById('disp_F_base_B').textContent = `${fmtInt(F_base_B_kg)} kg (${fmt(F_base_B_kN, 1)} kN)`;
+      document.getElementById('label_gauge_limit_A').textContent = `Limit: ${Math.round(allowable_q)} kN/m²`;
+      document.getElementById('label_gauge_limit_B').textContent = `Limit: ${Math.round(allowable_q)} kN/m²`;
+
+      updateUtilizationBar('barUtilA', 'badgeUtilA', util_floor_A);
+      updateUtilizationBar('barUtilB', 'badgeUtilB', util_floor_B);
+
+      // 9. Internal Forces (BMD & SFD)
+      const M_hook_kNm = (R_crown_A_kN * x_m) - (w_beam_kN_per_m * x_m * x_m / 2.0);
+      const M_beam_mid_kNm = (w_beam_kN_per_m * L_m * L_m) / 8.0;
+      const M_center_kNm = ((P_factored_kN * L_m) / 4.0) + M_beam_mid_kNm;
+      const M_max_kNm = Math.max(M_hook_kNm, M_center_kNm);
+
+      const V_max_kN = Math.max(R_crown_A_kN, R_crown_B_kN);
+
+      document.getElementById('card_beam_moment').textContent = `${fmt(M_max_kNm, 1)} kNm`;
+      document.getElementById('label_M_max_val').textContent = `M_max: ${fmt(M_max_kNm, 1)} kNm`;
+      document.getElementById('label_V_max_val').textContent = `V_max: ${fmt(V_max_kN, 1)} kN`;
+
+      // 10. Update Interactive Form Labels
+      document.getElementById('label_L_val').textContent = Math.round(L_mm);
+      document.getElementById('label_x_val').textContent = Math.round(x_mm);
+      const pct_span = L_mm > 0 ? (x_mm / L_mm * 100.0) : 50;
+      document.getElementById('label_x_pct').textContent = `${Math.round(pct_span)}%`;
+      document.getElementById('label_P_kg').textContent = fmtInt(P_kg);
+      document.getElementById('label_P_t').textContent = fmt(P_kg / 1000.0, 1);
+      document.getElementById('label_phi').textContent = phi.toFixed(2);
+      document.querySelectorAll('.tb_phi_tag').forEach(el => el.textContent = phi.toFixed(2));
+      document.getElementById('label_allowable_q_val').textContent = Math.round(allowable_q);
+
+      // 11. Asymmetry Warning Banner
+      const totalCrownReaction = R_crown_A_kg + R_crown_B_kg;
+      const ratioA = totalCrownReaction > 0 ? (R_crown_A_kg / totalCrownReaction) : 0.5;
+      const alertEl = document.getElementById('imbalanceAlert');
+      if (ratioA > 0.72 || ratioA < 0.28) {
+        alertEl.classList.remove('hidden');
+        const heavySide = ratioA > 0.72 ? 'Support A (Left)' : 'Support B (Right)';
+        const heavyPct = Math.round((ratioA > 0.72 ? ratioA : (1 - ratioA)) * 100);
+        document.getElementById('imbalanceText').textContent = 
+          `${heavySide} carries ${heavyPct}% of the beam reaction. Verify cylinder synchronized travel and unequal ground settlement.`;
+      } else {
+        alertEl.classList.add('hidden');
+      }
+
+      // 12. Structural Breakdown Table
+      document.getElementById('tb_hook_A').textContent = `${fmtInt(R_hook_A_kg)} kg (${fmt(R_hook_A_kN, 1)} kN)`;
+      document.getElementById('tb_hook_B').textContent = `${fmtInt(R_hook_B_kg)} kg (${fmt(R_hook_B_kN, 1)} kN)`;
+      document.getElementById('tb_hook_tot').textContent = `${fmtInt(P_factored_kg)} kg (${fmt(P_factored_kN, 1)} kN)`;
+
+      document.getElementById('tb_beam_A').textContent = `${fmtInt(R_beam_half_kg)} kg (${fmt(R_beam_half_kN, 1)} kN)`;
+      document.getElementById('tb_beam_B').textContent = `${fmtInt(R_beam_half_kg)} kg (${fmt(R_beam_half_kN, 1)} kN)`;
+      document.getElementById('tb_beam_tot').textContent = `${fmtInt(W_beam_kg)} kg (${fmt(W_beam_kN, 1)} kN)`;
+
+      document.getElementById('tb_crown_react_A').textContent = `${fmtInt(R_crown_A_kg)} kg (${fmt(R_crown_A_kN, 1)} kN)`;
+      document.getElementById('tb_crown_react_B').textContent = `${fmtInt(R_crown_B_kg)} kg (${fmt(R_crown_B_kN, 1)} kN)`;
+      document.getElementById('tb_crown_react_tot').textContent = `${fmtInt(R_crown_A_kg + R_crown_B_kg)} kg (${fmt(R_crown_A_kN + R_crown_B_kN, 1)} kN)`;
+
+      const crown_shift_kg = W_crown_kg + (W_shift_kg / 2);
+      const crown_shift_kN = (crown_shift_kg * G_CONST) / 1000.0;
+      document.getElementById('tb_crown_wt_A').textContent = `${fmtInt(crown_shift_kg)} kg`;
+      document.getElementById('tb_crown_wt_B').textContent = `${fmtInt(crown_shift_kg)} kg`;
+      document.getElementById('tb_crown_wt_tot').textContent = `${fmtInt(crown_shift_kg * 2)} kg`;
+
+      document.getElementById('tb_gantry_unit_A').textContent = `${fmtInt(W_lift_unit_kg)} kg`;
+      document.getElementById('tb_gantry_unit_B').textContent = `${fmtInt(W_lift_unit_kg)} kg`;
+      document.getElementById('tb_gantry_unit_tot').textContent = `${fmtInt(W_lift_unit_kg * 2)} kg`;
+
+      document.getElementById('tb_track_wt_A').textContent = `${fmtInt(W_track_unit_kg)} kg`;
+      document.getElementById('tb_track_wt_B').textContent = `${fmtInt(W_track_unit_kg)} kg`;
+      document.getElementById('tb_track_wt_tot').textContent = `${fmtInt(W_track_unit_kg * 2)} kg`;
+
+      document.getElementById('tb_base_A').textContent = `${fmtInt(F_base_A_kg)} kg (${fmt(F_base_A_kN, 1)} kN)`;
+      document.getElementById('tb_base_B').textContent = `${fmtInt(F_base_B_kg)} kg (${fmt(F_base_B_kN, 1)} kN)`;
+      document.getElementById('tb_base_tot').textContent = `${fmtInt(F_base_A_kg + F_base_B_kg)} kg (${fmt(F_base_A_kN + F_base_B_kN, 1)} kN)`;
+
+      document.getElementById('tb_area_A').textContent = `${fmt(A_eff_m2, 3)} m²`;
+      document.getElementById('tb_area_B').textContent = `${fmt(A_eff_m2, 3)} m²`;
+      document.getElementById('tb_dims_label').textContent = `${Math.round(L_eff_mm)} × ${Math.round(w_track_mm)} mm`;
+
+      const pressA_el = document.getElementById('tb_press_A');
+      const pressB_el = document.getElementById('tb_press_B');
+      pressA_el.textContent = `${fmt(q_A_kNm2, 1)} kN/m²`;
+      pressB_el.textContent = `${fmt(q_B_kNm2, 1)} kN/m²`;
+      pressA_el.className = `py-2.5 px-2 text-right text-sm font-bold ${q_A_kNm2 > allowable_q ? 'text-rose-400' : 'text-emerald-400'}`;
+      pressB_el.className = `py-2.5 px-2 text-right text-sm font-bold ${q_B_kNm2 > allowable_q ? 'text-rose-400' : 'text-emerald-400'}`;
+      document.getElementById('tb_allow_label').textContent = `Limit: ${Math.round(allowable_q)} kN/m²`;
+
+      document.getElementById('tb_util_A').textContent = `${Math.round(util_floor_A)}%`;
+      document.getElementById('tb_util_B').textContent = `${Math.round(util_floor_B)}%`;
+
+      const finalStatus = document.getElementById('tb_final_status');
+      if (util_floor_A > 100 || util_floor_B > 100 || util_beam > 100) {
+        finalStatus.textContent = 'OVERLOAD';
+        finalStatus.className = 'py-2.5 px-2.5 text-right font-bold text-rose-400';
+      } else if (util_floor_A > 85 || util_floor_B > 85 || util_beam > 85) {
+        finalStatus.textContent = 'WARNING (>85%)';
+        finalStatus.className = 'py-2.5 px-2.5 text-right font-bold text-amber-400';
+      } else {
+        finalStatus.textContent = 'PASS SAFE';
+        finalStatus.className = 'py-2.5 px-2.5 text-right font-bold text-emerald-400';
+      }
+
+      // 13. Visual Schematic Drawing
+      drawSchematic({
+        L_mm, x_mm, L_m, x_m,
+        R_crown_A_kN, R_crown_B_kN,
+        F_base_A_kN, F_base_B_kN,
+        q_A_kNm2, q_B_kNm2,
+        P_kg, P_factored_kg,
+        base_length_mm, h_track_mm, L_eff_mm,
+        currentStage, stageHeight: stageInfo.H
+      });
+
+      // 14. Internal Force Chart (BMD/SFD)
+      renderChart(L_m, x_m, P_factored_kN, w_beam_kN_per_m, R_crown_A_kN);
+    }
+
+    function updateUtilizationBar(barId, badgeId, utilPct) {
+      const bar = document.getElementById(barId);
+      const badge = document.getElementById(badgeId);
+      const clamped = Math.min(100, Math.max(0, utilPct));
+
+      bar.style.width = clamped + '%';
+      badge.textContent = `${Math.round(utilPct)}% Utilized`;
+
+      if (utilPct > 100) {
+        bar.className = 'bg-rose-500 h-2.5 rounded-full transition-all duration-300';
+        badge.className = 'font-mono text-[11px] px-2 py-0.5 rounded font-semibold bg-rose-950 text-rose-300 border border-rose-800';
+      } else if (utilPct > 85) {
+        bar.className = 'bg-amber-500 h-2.5 rounded-full transition-all duration-300';
+        badge.className = 'font-mono text-[11px] px-2 py-0.5 rounded font-semibold bg-amber-950 text-amber-300 border border-amber-800';
+      } else {
+        bar.className = 'bg-emerald-500 h-2.5 rounded-full transition-all duration-300';
+        badge.className = 'font-mono text-[11px] px-2 py-0.5 rounded font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800';
+      }
+    }
+
+    function updateSimpleBar(barId, utilPct) {
+      const bar = document.getElementById(barId);
+      const clamped = Math.min(100, Math.max(0, utilPct));
+      bar.style.width = clamped + '%';
+      if (utilPct > 100) bar.className = 'bg-rose-500 h-2 rounded-full transition-all duration-300';
+      else if (utilPct > 85) bar.className = 'bg-amber-500 h-2 rounded-full transition-all duration-300';
+      else bar.className = 'bg-emerald-500 h-2 rounded-full transition-all duration-300';
+    }
+
+    // DRAW SVG SCHEMATIC WITH 45° LOAD DISPERSION TRAPEZOID
+    function drawSchematic(d) {
+      const g = document.getElementById('svgLayer');
+      g.innerHTML = '';
+
+      const leftX = 130;
+      const rightX = 670;
+      const spanPx = rightX - leftX;
+
+      const beamY = 90;
+      const beamHeight = 24;
+      const groundY = 325;
+      const towerWidth = 46;
+
+      // Scaling track base and 45° dispersion
+      // Represent base length in px
+      const basePxHalf = 32;
+      const trackHeightPx = 16;
+      const dispersionPxSpread = trackHeightPx; // 45° means spread = height on both ends!
+
+      const hookPx = leftX + (d.x_m / d.L_m) * spanPx;
+
+      let html = '';
+
+      // 1. Runway Tracks & 45° Dispersion Wedges on Ground
+      [
+        { x: leftX, q: d.q_A_kNm2, color: '#38bdf8' },
+        { x: rightX, q: d.q_B_kNm2, color: '#818cf8' }
+      ].forEach(track => {
+        const shoeTopY = groundY - trackHeightPx;
+        const shoeLeft = track.x - basePxHalf;
+        const shoeRight = track.x + basePxHalf;
+        const floorLeft = shoeLeft - dispersionPxSpread;
+        const floorRight = shoeRight + dispersionPxSpread;
+
+        // 45° Dispersion Trapezoid Polygon
+        html += `
+          <!-- 45-degree dispersion zone -->
+          <polygon points="${shoeLeft},${shoeTopY} ${shoeRight},${shoeTopY} ${floorRight},${groundY} ${floorLeft},${groundY}" fill="rgba(2, 132, 199, 0.18)" stroke="#0284c7" stroke-width="1.2" stroke-dasharray="3,2" />
+          
+          <!-- Track Rail Profile -->
+          <rect x="${shoeLeft}" y="${shoeTopY}" width="${basePxHalf * 2}" height="${trackHeightPx}" rx="2" fill="#334155" stroke="#64748b" stroke-width="1.5" />
+          <line x1="${shoeLeft}" y1="${groundY - 2}" x2="${shoeRight}" y2="${groundY - 2}" stroke="${track.color}" stroke-width="2.5" />
+          
+          <!-- 45-deg Angle Callout Indicator -->
+          <line x1="${shoeLeft}" y1="${shoeTopY}" x2="${floorLeft}" y2="${groundY}" stroke="#38bdf8" stroke-width="1.5" />
+          <text x="${floorLeft - 4}" y="${groundY - 4}" fill="#38bdf8" font-size="9" font-family="monospace" text-anchor="end">45°</text>
+          
+          <!-- Pressure Label -->
+          <text x="${track.x}" y="${groundY + 16}" fill="#cbd5e1" font-size="10" font-family="monospace" font-weight="bold" text-anchor="middle">q: ${fmt(track.q, 1)} kN/m²</text>
+        `;
+      });
+
+      // 2. Gantry Hydraulic Towers & Stage Extension
+      [
+        { x: leftX, color: '#0284c7', fill: '#0369a1', label: 'TOWER A', stroke: '#38bdf8' },
+        { x: rightX, color: '#6366f1', fill: '#4338ca', label: 'TOWER B', stroke: '#818cf8' }
+      ].forEach(tower => {
+        const topY = beamY + beamHeight + 6;
+        const botY = groundY - trackHeightPx;
+        const h = botY - topY;
+
+        html += `
+          <!-- Hydraulic Cylinder Outer Barrel -->
+          <rect x="${tower.x - towerWidth/2}" y="${topY + (h * 0.35)}" width="${towerWidth}" height="${h * 0.65}" rx="3" fill="#0f172a" stroke="${tower.color}" stroke-width="2" />
+          
+          <!-- Cylinder Telescopic Stage Rod -->
+          <rect x="${tower.x - towerWidth/3}" y="${topY}" width="${towerWidth * (2/3)}" height="${h * 0.38}" rx="2" fill="#1e293b" stroke="#94a3b8" stroke-width="1.5" />
+          <line x1="${tower.x}" y1="${topY}" x2="${tower.x}" y2="${botY}" stroke="${tower.color}" stroke-width="2" stroke-dasharray="4,4" opacity="0.6" />
+          
+          <!-- Crown Header Unit -->
+          <rect x="${tower.x - towerWidth/2 - 6}" y="${beamY - 4}" width="${towerWidth + 12}" height="${beamHeight + 14}" rx="4" fill="${tower.fill}" stroke="${tower.stroke}" stroke-width="2" />
+          <text x="${tower.x}" y="${beamY - 12}" fill="${tower.stroke}" font-size="10" font-family="monospace" font-weight="bold" text-anchor="middle">${tower.label}</text>
+        `;
+      });
+
+      // 3. Lifting Beam
+      html += `
+        <rect x="${leftX - 35}" y="${beamY}" width="${spanPx + 70}" height="${beamHeight}" rx="2" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5" />
+        <line x1="${leftX - 35}" y1="${beamY + beamHeight/2}" x2="${rightX + 35}" y2="${beamY + beamHeight/2}" stroke="#bae6fd" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" />
+
+        <!-- Span Dimension in mm -->
+        <line x1="${leftX}" y1="${beamY - 26}" x2="${rightX}" y2="${beamY - 26}" stroke="#64748b" stroke-width="1.5" />
+        <line x1="${leftX}" y1="${beamY - 32}" x2="${leftX}" y2="${beamY - 20}" stroke="#64748b" stroke-width="1.5" />
+        <line x1="${rightX}" y1="${beamY - 32}" x2="${rightX}" y2="${beamY - 20}" stroke="#64748b" stroke-width="1.5" />
+        <text x="${(leftX + rightX)/2}" y="${beamY - 30}" fill="#cbd5e1" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle">SPAN L = ${Math.round(d.L_mm)} mm</text>
+      `;
+
+      // 4. Hook Load Rigging & Offset in mm
+      const dropY = beamY + beamHeight;
+      const loadBoxY = dropY + 65;
+
+      html += `
+        <!-- Offset Dimension in mm -->
+        <line x1="${leftX}" y1="${dropY + 12}" x2="${hookPx}" y2="${dropY + 12}" stroke="#f59e0b" stroke-width="1.5" />
+        <line x1="${hookPx}" y1="${dropY + 6}" x2="${hookPx}" y2="${dropY + 18}" stroke="#f59e0b" stroke-width="1.5" />
+        <text x="${(leftX + hookPx)/2}" y="${dropY + 24}" fill="#f59e0b" font-size="10" font-family="monospace" text-anchor="middle">x = ${Math.round(d.x_mm)} mm</text>
+
+        <!-- Trolley Lug & Slings -->
+        <rect x="${hookPx - 16}" y="${beamY - 3}" width="32" height="${beamHeight + 6}" rx="3" fill="#d97706" stroke="#fef08a" stroke-width="2" class="cursor-pointer" />
+        <line x1="${hookPx}" y1="${dropY + 10}" x2="${hookPx - 28}" y2="${loadBoxY}" stroke="#e2e8f0" stroke-width="2" />
+        <line x1="${hookPx}" y1="${dropY + 10}" x2="${hookPx + 28}" y2="${loadBoxY}" stroke="#e2e8f0" stroke-width="2" />
+        <circle cx="${hookPx}" cy="${dropY + 10}" r="4.5" fill="#f59e0b" stroke="#fff" stroke-width="1.5" />
+
+        <!-- Load Box -->
+        <rect x="${hookPx - 42}" y="${loadBoxY}" width="84" height="42" rx="6" fill="#78350f" stroke="#f59e0b" stroke-width="2" />
+        <text x="${hookPx}" y="${loadBoxY + 18}" fill="#fef3c7" font-size="10" font-family="sans-serif" font-weight="bold" text-anchor="middle">SWL PAYLOAD</text>
+        <text x="${hookPx}" y="${loadBoxY + 33}" fill="#fbbf24" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle">${fmtInt(d.P_kg)} kg</text>
+
+        <!-- Load Vector Arrow -->
+        <line x1="${hookPx}" y1="${loadBoxY + 45}" x2="${hookPx}" y2="${loadBoxY + 74}" stroke="#f59e0b" stroke-width="3" marker-end="url(#arrowDownAmber)" />
+      `;
+
+      // 5. Crown Reaction Vectors
+      const maxCrown = Math.max(d.R_crown_A_kN, d.R_crown_B_kN, 1);
+      const lenA = Math.min(60, Math.max(22, (d.R_crown_A_kN / maxCrown) * 55));
+      const lenB = Math.min(60, Math.max(22, (d.R_crown_B_kN / maxCrown) * 55));
+
+      html += `
+        <line x1="${leftX - 26}" y1="${beamY + beamHeight + lenA}" x2="${leftX - 26}" y2="${beamY + beamHeight + 4}" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowUpSky)" />
+        <text x="${leftX - 32}" y="${beamY + beamHeight + lenA/2 + 4}" fill="#38bdf8" font-size="10" font-family="monospace" font-weight="bold" text-anchor="end">R_A: ${fmt(d.R_crown_A_kN, 1)} kN</text>
+
+        <line x1="${rightX + 26}" y1="${beamY + beamHeight + lenB}" x2="${rightX + 26}" y2="${beamY + beamHeight + 4}" stroke="#6366f1" stroke-width="3" marker-end="url(#arrowUpIndigo)" />
+        <text x="${rightX + 32}" y="${beamY + beamHeight + lenB/2 + 4}" fill="#a5b4fc" font-size="10" font-family="monospace" font-weight="bold" text-anchor="start">R_B: ${fmt(d.R_crown_B_kN, 1)} kN</text>
+      `;
+
+      g.innerHTML = html;
+    }
+
+    // INTERACTIVE SVG DRAGGING & TOUCH SUPPORT
+    const svgEl = document.getElementById('gantrySvg');
+
+    function updateHookFromSvgEvent(evt) {
+      const rect = svgEl.getBoundingClientRect();
+      const clickPx = evt.clientX - rect.left;
+      const svgWidth = rect.width;
+
+      const viewX = (clickPx / svgWidth) * 800;
+      const leftX = 130;
+      const rightX = 670;
+      const spanPx = rightX - leftX;
+
+      const norm = Math.max(0, Math.min(1, (viewX - leftX) / spanPx));
+      const curL = parseFloat(document.getElementById('input_L').value) || 8000;
+      syncParam('x', Math.round(norm * curL));
+    }
+
+    svgEl.addEventListener('mousedown', (e) => {
+      isDraggingHook = true;
+      updateHookFromSvgEvent(e);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDraggingHook) updateHookFromSvgEvent(e);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingHook = false;
+    });
+
+    svgEl.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 0) {
+        isDraggingHook = true;
+        updateHookFromSvgEvent(e.touches[0]);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (isDraggingHook && e.touches.length > 0) updateHookFromSvgEvent(e.touches[0]);
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isDraggingHook = false;
+    });
+
+    // RENDER BMD & SFD CHART VIA CHART.JS
+    function renderChart(L_m, x_m, P_kN_factored, w_beam_kN_per_m, R_A_kN) {
+      const ctx = document.getElementById('internalForceChart').getContext('2d');
+      const numPoints = 80;
+      const labels = [];
+      const values = [];
+
+      for (let i = 0; i <= numPoints; i++) {
+        const curX = (i / numPoints) * L_m;
+        labels.push(fmt(curX, 2) + 'm');
+
+        if (currentDiagramTab === 'bmd') {
+          let M = (R_A_kN * curX) - (w_beam_kN_per_m * curX * curX / 2.0);
+          if (curX > x_m) {
+            M -= P_kN_factored * (curX - x_m);
+          }
+          values.push(Math.round(M * 10) / 10);
+        } else {
+          let V = R_A_kN - (w_beam_kN_per_m * curX);
+          if (curX > x_m) {
+            V -= P_kN_factored;
+          }
+          values.push(Math.round(V * 10) / 10);
+        }
+      }
+
+      if (chartInstance) chartInstance.destroy();
+
+      const isBmd = currentDiagramTab === 'bmd';
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: isBmd ? 'Bending Moment M (kNm)' : 'Shear Force V (kN)',
+            data: values,
+            borderColor: isBmd ? '#38bdf8' : '#fbbf24',
+            backgroundColor: isBmd ? 'rgba(56, 189, 248, 0.15)' : 'rgba(251, 191, 36, 0.15)',
+            borderWidth: 2,
+            fill: true,
+            pointRadius: 0,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              labels: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.parsed.y} ${isBmd ? 'kNm' : 'kN'}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#64748b', maxTicksLimit: 10, font: { family: 'monospace', size: 9 } },
+              grid: { color: 'rgba(51, 65, 85, 0.3)' }
+            },
+            y: {
+              ticks: { color: '#94a3b8', font: { family: 'monospace', size: 9 } },
+              grid: { color: 'rgba(51, 65, 85, 0.5)' }
+            }
+          }
+        }
+      });
+    }
+
+    // INITIALIZATION ON WINDOW LOAD
+    window.onload = function () {
+      initDropdowns();
+      onSelectBeam();
+      onSelectGantry();
+      onSelectTrack();
+      runAnalysis();
+    };
+  </script>
+</body>
+</html>
