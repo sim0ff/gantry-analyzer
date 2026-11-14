@@ -1,0 +1,227 @@
+================================================================================
+TECHNICAL WHITE PAPER & DESIGN METHODOLOGY
+================================================================================
+Document Reference : ENG-WP-HGA-001
+Project            : Heavy Hydraulic Gantry & Track Bearing Load Analyzer
+Target Application : Heavy Industrial Rigging, Machine Installations, and Plant Shutdowns
+Revision           : 3.3 (Machinery Directive 2006/42/EC & Eurocode Compliance Update)
+Date               : November 2026
+================================================================================
+
+1. EXECUTIVE SUMMARY & OBJECTIVE
+--------------------------------------------------------------------------------
+In heavy rigging and industrial installation engineering, hydraulic gantry systems
+(such as Lift Systems, Greiner, and Enerpac modular units) frequently operate near
+both their mechanical hoist limits and the structural capacity of the host facility
+floor slab. A routine point-load lifting operation can result in severe slab
+cracking, lateral-torsional buckling of header beams, timber crushing, or lateral
+instability if eccentricities, dynamic hoisting spikes, side-pull inertia, and
+partial safety factors are neglected.
+
+The Hydraulic Gantry & Track Bearing Load Analyzer (Rev 3.3) is a single-screen
+static & ULS verification tool developed for preliminary lift planning under
+Machinery Directive 2006/42/EC and harmonized Eurocodes (EN 13001-2, EN 13001-3-1,
+EN 1990, EN 1993-1-1, EN 1995-1-1). It computes:
+
+  1. Split vertical reactions across dual gantry towers under variable hook
+     configurations (Config 1: Single Hook Point Load; Config 2: Dual Hook 50/50 Split).
+  2. Progressive deadweight accumulation across header lifting beams, side-shift/
+     swivel assemblies, full hydraulic telescopic tower units (`unitWt`), gantry
+     tracks, and calculated hardwood support arrays.
+  3. Internal beam shear force V(x) and bending moment M(x) diagrams evaluated via
+     Heaviside step functions across 60 equidistant intervals, plus ULS flexural &
+     lateral-torsional buckling (LTB) resistance M_b,Rd (EN 1993-1-1 § 6.3.2) and
+     stocked beam span overrun interlocking.
+  4. Horizontal lateral / side-pull & travel acceleration stability (H_i = alpha_h * F_crown,i)
+     producing base eccentricities, core exceedance checks (e <= B/6 vs overturning
+     B/2), and amplified edge bearing stress (q_peak).
+  5. Actual ground contact bearing pressure (q_actual in kN/m^2, selectable between
+     Working/Characteristic q_adm and Eurocode ULS 1.35G + 1.50Q) based on the
+     directional 45° longitudinal dispersion model and zero transverse dispersion (0°).
+  6. Tier 3B steel-rail-to-hardwood perpendicular-to-grain crushing verification
+     (sigma_c,90,Ed <= f_c,90,d) per EN 1995-1-1 § 6.1.5 across timber grades
+     C24, D30, D40, and D70 when Hardwood block array mode is active.
+  7. Synchronized out-of-level hydraulic tolerances (Delta H_span, Delta H_base) and
+     an interactive Machinery Directive 2006/42/EC Annex I § 4.1.2.6 commissioning
+     sign-off checklist.
+
+
+2. STRUCTURAL MECHANICS & MATHEMATICAL FORMULATION
+--------------------------------------------------------------------------------
+
+2.1 Applied Suspended Load, Dynamic Amplification & Partial Safety Factors
+The total applied hook force incorporates the dynamic hoisting factor (phi) to
+account for dynamic inertia, sling elongation, and hydraulic control pulsing:
+
+$$P_{\text{dyn}} = P \cdot \phi \cdot \frac{g}{1000} \quad [\text{kN}]$$
+
+Where:
+  - $P$    = Gross suspended payload ($\text{kg}$)
+  - $\phi$ = Hoisting / dynamic factor (dimensionless, $1.00\text{ to }1.25$
+             pursuant to EN 13001-2 / DIN 15018).
+             Values $\phi < 1.05$ trigger a live caution banner permitting
+             $\phi = 1.00$ for static load test evaluation only.
+  - $g$    = $9.80665\ \text{m/s}^2$ (standard gravity)
+
+For Eurocode Ultimate Limit State (ULS) member checks (beam bending/LTB and
+hardwood timber crushing, plus ULS slab mode when selected), permanent deadweight
+components ($G$) receive $\gamma_G = 1.35$ and dynamic hoisted reactions ($Q$)
+receive $\gamma_Q = 1.50$.
+
+
+2.2 Beam-Level Statics & EN 1993-1-1 Bending / LTB Verification
+
+Configuration 1: Single Hook Point Load
+For an eccentric single hook located at distance $x$ from the center of Support A
+along clear span $L$:
+
+$$R_{\text{hook}, A} = P_{\text{dyn}} \cdot \left(\frac{L - x}{L}\right), \qquad R_{\text{hook}, B} = P_{\text{dyn}} \cdot \left(\frac{x}{L}\right)$$
+
+Configuration 2: Dual Hook (Equal 50/50 Split)
+When rigging with dual hoist blocks separated by $L_{\text{spread}}$, centered at
+$x_{\text{center}}$ ($0 \le x_1 \le x_2 \le L$):
+
+$$x_1 = x_{\text{center}} - \frac{L_{\text{spread}}}{2}, \qquad x_2 = x_{\text{center}} + \frac{L_{\text{spread}}}{2}$$
+$$R_{\text{hook}, A} = \frac{P_{\text{dyn}}}{2} \cdot \left[\frac{(L - x_1) + (L - x_2)}{L}\right], \qquad R_{\text{hook}, B} = \frac{P_{\text{dyn}}}{2} \cdot \left[\frac{x_1 + x_2}{L}\right]$$
+
+Header Lifting Beam Deadweight Distribution & Crown Reactions:
+$$R_{\text{beam}, A} = R_{\text{beam}, B} = \frac{m_{\text{beam}} \cdot g}{2 \cdot 1000}, \qquad F_{\text{crown}, i} = R_{\text{hook}, i} + R_{\text{beam}, i} \quad [\text{kN}]$$
+
+ULS Flexural & Lateral-Torsional Buckling (EN 1993-1-1 § 6.2.5 & § 6.3.2):
+Using beam section properties ($W_{pl,y}, I_z, I_T, I_w, f_y = 355\ \text{MPa}$)
+from `data/beams.js` and unbraced length $L_{cr} = L$:
+  - Design moment $M_{\text{Ed}}$ is sampled across 60 intervals plus hook
+    ordinates under $1.35\,w_{\text{beam}}$ and $1.50\,P_i$.
+  - Plastic moment resistance: $M_{c,\text{Rd}} = W_{pl,y} \cdot f_y \cdot 10^{-3}\ [\text{kNm}]$ ($\gamma_{M0} = 1.0$).
+  - Elastic critical moment ($C_1 = 1.0$ conservative):
+    $$M_{cr} = \frac{\pi^2 E I_z}{L_{cr}^2} \sqrt{\frac{I_w}{I_z} + \frac{L_{cr}^2 G I_T}{\pi^2 E I_z}}$$
+  - Slenderness $\bar{\lambda}_{LT} = \sqrt{M_{c,\text{Rd}} / M_{cr}}$; curve
+    $b$ ($\alpha_{LT} = 0.34$) for $H/W \le 2.0$ or curve $c$ ($\alpha_{LT} = 0.49$)
+    for $H/W > 2.0$, with $\lambda_{LT,0} = 0.4, \beta = 0.75$. Closed/twin-web
+    frames (`309406`, `308496`) use $\chi_{LT} = 1.0$.
+  - LTB resistance: $M_{b,\text{Rd}} = \chi_{LT} \cdot M_{c,\text{Rd}}$.
+  - Stock Span Overrun Gate: For catalogued beams (`!isCustom`), if $L > L_{\text{stock}}$,
+    a Tier 1 overrun banner fires and sets the overall gate to FAIL / OVERLOAD.
+
+
+2.3 Internal Forces: Shear Force & Bending Moment Distributions
+Evaluated piecewise across 60 equidistant intervals plus exact point-load
+ordinates via Heaviside step function $\mathcal{H}(x - x_i)$:
+
+$$V(x) = R_{\text{crown}, A} - (w_{\text{beam}} \cdot x) - \sum_{i} P_i \cdot \mathcal{H}(x - x_i)$$
+$$M(x) = R_{\text{crown}, A} \cdot x - \frac{1}{2} w_{\text{beam}} \cdot x^2 - \sum_{i} P_i (x - x_i) \cdot \mathcal{H}(x - x_i)$$
+
+
+2.4 Lateral Side-Pull / Skewing Stability & Synchronized Leveling (EN 13001-2 / 2006/42/EC)
+Horizontal side-pull / skewing force per tower ($H_{\text{lat},i} = \alpha_h \cdot F_{\text{crown},i}$,
+default $\alpha_h = 0.05$, selectable $0.00 / 0.05 / 0.10$) acts at cylinder pin
+elevation $H_{\text{stage}}$:
+
+$$M_{\text{lat},i} = H_{\text{lat},i} \cdot \frac{H_{\text{stage}}}{1000} \quad [\text{kNm}], \qquad e_i = \frac{M_{\text{lat},i} \cdot 1000}{F_{\text{base},i}} \quad [\text{mm}]$$
+$$u_i = \max\left(\frac{e_i}{W_{\text{base}}}, \frac{e_i}{L_{\text{base}}}\right)$$
+
+Edge contact magnification factor $k_{\text{edge},i}$:
+  - Within middle-third core ($u_i \le 1/6$, i.e. $\le 33.3\%$ of $B/2$):
+    $k_{\text{edge},i} = 1 + 6u_i$ ($1.00\text{ to }2.00$).
+  - Partial base heel uplift ($1/6 < u_i < 0.5$): triggers amber stability alert
+    with $k_{\text{edge},i} = \frac{4}{3(1 - 2u_i)}$.
+  - Overturning ($u_i \ge 0.5$, i.e. $\ge 100\%$ of $B/2$): flags `UPLIFT` and fails gate.
+
+Synchronized hydraulic leveling limit (`input_level_tol`, default $2.0\ \text{mm/m}$):
+$$\Delta H_{\text{span}} = \pm L_{\text{m}} \cdot \text{tol}, \qquad \Delta H_{\text{base}} = \pm \frac{W_{\text{base}}}{1000} \cdot \text{tol} \quad [\text{mm}]$$
+
+
+3. FLOOR LOADING, DISPERSION PHYSICS & HARDWOOD CRUSHING
+--------------------------------------------------------------------------------
+
+3.1 Cumulative Vertical Base Force
+$$F_{\text{base}, i} = F_{\text{crown}, i} + W_{\text{shift}} + W_{\text{tracks\_tower}} + W_{\text{track\_unit}} \quad [\text{kN}]$$
+(where $W_{\text{tracks\_tower}}$ from gantry `unitWt` already includes the complete
+cylinder and top clevis assembly between the beam and tracks; $W_{\text{shift}}$ covers
+optional top side-shift / swivel deadweight).
+
+Slab Verification Basis (`input_q_basis`):
+  - `working` (default): $F_{\text{eval},i} = F_{\text{base},i}$ checked against $q_{\text{allowable}}$.
+  - `uls`: $F_{\text{eval},i} = 1.35\,G_{\text{base},i} + 1.50\,R_{\text{hook},i}$ checked against design slab limit $q_{\text{Rd}}$.
+
+
+3.2 Ground Contact Area & Dual-Interface 45° Dispersion Geometry
+Mode 1 — Direct Track-on-Slab (`Track on slab`):
+  $L_{\text{eff}} = L_{\text{base}} + 2 \cdot h_{\text{track}}\ [\text{mm}]$, $W_{\text{eff}} = W_{\text{track}}\ [\text{mm}]$ ($0^\circ$ transverse).
+
+Mode 2 — Hardwood Block Array (`Hardwood block array`):
+  45° track cone is omitted; each block $[x_i, x_i + w_{\text{profile}}]$ disperses
+  at $45^\circ$ only at the hardwood–concrete interface through $h_{\text{slab}}$
+  ($I_i' = [x_i - h_{\text{slab}}, x_i + w_{\text{profile}} + h_{\text{slab}}]$, overlapping
+  cones merged), with $W_{\text{eff}} = l_{\text{block}}$ ($l_{\text{block}} > W_{\text{track}}$ required).
+
+$$A_{\text{eff}} = \frac{L_{\text{eff}} \cdot W_{\text{eff}}}{1\,000\,000}\ [\text{m}^2], \qquad q_i = \frac{F_{\text{eval},i}}{A_{\text{eff}}}, \qquad q_{\text{peak},i} = q_i \cdot k_{\text{edge},i} \quad [\text{kN/m}^2]$$
+
+
+3.3 Tier 3B: Hardwood Crushing Perpendicular to Grain (EN 1995-1-1 § 6.1.5)
+When `Hardwood block array` is active, contact stress directly beneath the steel
+rail flange on top of the timber blocks is checked at ULS ($1.35G + 1.50Q$ above
+the timber interface, i.e. excluding timber cribbing self-weight):
+
+$$A_{\text{rail,timber}} = \frac{n \cdot w_{\text{profile}} \cdot W_{\text{track}}}{1\,000\,000} \quad [\text{m}^2]$$
+$$F_{\text{timber,Ed},i} = 1.35\,(R_{\text{beam},i} + W_{\text{shift}} + W_{\text{tracks\_tower}} + W_{\text{rail}}) + 1.50\,R_{\text{hook},i} \quad [\text{kN}]$$
+$$\sigma_{c,90,\text{Ed},i} = \frac{F_{\text{timber,Ed},i}}{A_{\text{rail,timber}}} \le f_{c,90,d} = \frac{k_{\text{mod}} \cdot f_{c,90,k}}{\gamma_M} \cdot 1000 \quad [\text{kN/m}^2]$$
+
+Short-term rigging modification factors: $k_{\text{mod}} = 0.90$, $\gamma_M = 1.30$.
+Timber self-weight per support is computed automatically from block volume and
+EN 338 mean density ($\rho_{\text{mean}}$) as
+$m_{\text{wood}} = n \cdot (l_{\text{block}} \cdot w_{\text{profile}} \cdot h_{\text{wood}} / 10^9) \cdot \rho_{\text{mean}}$:
+  - `C24` ($f_{c,90,k} = 2.5\ \text{MPa}$, $\rho_{\text{mean}} = 420\ \text{kg/m}^3$) -> $f_{c,90,d} \approx 1{,}731\ \text{kN/m}^2$
+  - `D30` ($f_{c,90,k} = 8.0\ \text{MPa}$, $\rho_{\text{mean}} = 640\ \text{kg/m}^3$) -> $f_{c,90,d} \approx 5{,}538\ \text{kN/m}^2$
+  - `D40` ($f_{c,90,k} = 8.8\ \text{MPa}$, $\rho_{\text{mean}} = 700\ \text{kg/m}^3$, default) -> $f_{c,90,d} \approx 6{,}092\ \text{kN/m}^2$
+  - `D70` ($f_{c,90,k} = 13.5\ \text{MPa}$, $\rho_{\text{mean}} = 900\ \text{kg/m}^3$) -> $f_{c,90,d} \approx 9{,}346\ \text{kN/m}^2$
+
+
+4. MULTI-TIER STRUCTURAL VERIFICATION & GATING
+--------------------------------------------------------------------------------
+Status bands: `PASS <= 85%`, `CAUTION 85–100%` (or $\phi < 1.05$ / heel core > 33%), `OVERLOAD / FAIL > 100%`:
+
+  - Tier 1 (SWL + Span + EN 1993-1-1 LTB):
+    1. $\max(F_{\text{crown}}) \le \text{SWL}_{\text{beam}}$ (or toggle $P_{\text{dyn}}$).
+    2. Stock span check: $L \le L_{\text{stock}}$ (`!isCustom`).
+    3. ULS Bending & LTB: $M_{\text{Ed}} \le M_{b,\text{Rd}}$.
+  - Tier 2 (2-Pt Cylinder Rating + Lateral Stability + Sync Level):
+    Option A checks $F_{\text{crown},i} \le \text{cap}_{2\text{pt}}$ (flagging
+    missing ratings without guessing; 2-stage lock on `Lift Systems 70T`), plus
+    EN 13001-2 horizontal side-pull eccentricity ($u_{\max} < 0.50$, edge peak
+    monitoring) and 2006/42/EC sync out-of-level ($\Delta H_{\text{span}}, \Delta H_{\text{base}}$).
+  - Tier 3 & 3B (Slab Bearing & Timber Crushing):
+    Evaluates $\max(q_A, q_B) \le q_{\text{allowable}}$, outputs required mat area
+    when exceeded, reports eccentric edge peak $q_{\text{peak}}$, and verifies
+    EN 1995-1-1 hardwood crushing $\sigma_{c,90,\text{Ed}} \le f_{c,90,d}$.
+
+
+5. SOFTWARE ARCHITECTURE & LOCALIZATION
+--------------------------------------------------------------------------------
+  - Client-side HTML5, ES6+ JavaScript, Tailwind CSS (CDN), inline CAD SVGs, Chart.js.
+  - `data/beams.js`: 25 beams with `Wply`, `Iz`, `It`, `Iw`, `fy`, `closed`, `isCustom`.
+  - `data/gantry-units.js`: 10 hydraulic gantry units (`Lift Systems 70T` strictly 2-stage).
+  - `data/gantry-tracks.js`: 15 track profiles.
+  - `js/app.js`: Full statics, Eurocode LTB/Timber/ULS, EN 13001-2 lateral stability,
+    read-only SVG renderers, Chart.js 60-interval diagrams, and 1:1 EN/DE i18n engine.
+  - `docs/technical-spec-rev3.3.txt`: This Machinery Directive 2006/42/EC specification.
+
+
+6. ENGINEERING LIMITATIONS, BOUNDARY CONDITIONS & 2006/42/EC SIGN-OFF
+--------------------------------------------------------------------------------
+  1. Planar Mechanics + Side-Pull Approximation: Primary statics evaluate 2D planar
+     equilibrium plus parameterized 1st-order lateral side-pull ($H_i = \alpha_h F_{\text{crown},i}$);
+     extreme site wind loads, anchor tie-backs, and 2nd-order $P$-$\Delta$ effects
+     require dedicated finite-element modeling.
+  2. Track Span Continuity: Assumes continuous, level slab or inspected cribbing
+     support without unbridged pits or expansion joints.
+  3. Concrete Slab Punching & Subgrade Check: Evaluates average and edge-amplified
+     contact pressure ($q, q_{\text{peak}}$); structural slab bending and punching
+     shear ($v_{\text{Ed}}$) must still be verified against site civil drawings.
+  4. Commissioning & Sign-Off (`2006/42/EC` Annex I § 4.1.2.6): Section 6 provides
+     an interactive pre-lift commissioning checklist covering sync tolerance, rail
+     anchorage/cribbing, header twist-lock/LTB restraint, and PE/Prüfingenieur approval.
+
+================================================================================
+End of Technical Specification (ENG-WP-HGA-001 Rev 3.3)
+================================================================================
