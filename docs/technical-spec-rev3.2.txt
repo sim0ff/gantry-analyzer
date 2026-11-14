@@ -1,0 +1,330 @@
+================================================================================
+TECHNICAL WHITE PAPER & DESIGN METHODOLOGY
+================================================================================
+Document Reference : ENG-WP-HGA-001
+Project            : Heavy Hydraulic Gantry & Track Bearing Load Analyzer
+Target Application : Heavy Industrial Rigging, Machine Installations, and Plant Shutdowns
+Revision           : 3.2 (Dual-Interface 45° Dispersion, 2-Stage 70T & Read-Only Schematics)
+Date               : November 2026
+================================================================================
+
+1. EXECUTIVE SUMMARY & OBJECTIVE
+--------------------------------------------------------------------------------
+In heavy rigging and industrial installation engineering, hydraulic gantry systems
+(such as Lift Systems, Greiner, and Enerpac modular units) frequently operate near
+both their mechanical hoist limits and the structural capacity of the host facility
+floor slab. A routine point-load lifting operation can result in severe slab
+cracking, punching failure, or tower buckling if eccentricities, dynamic hoisting
+spikes, and deadweight distributions are neglected.
+
+The Hydraulic Gantry & Track Bearing Load Analyzer is a single-screen static
+analysis and verification tool developed to eliminate manual calculation errors
+during preliminary lift planning. It computes:
+
+  1. Split vertical reactions across dual gantry towers under variable hook
+     configurations (Config 1: Single Hook Point Load; Config 2: Dual Hook 50/50 Split).
+  2. Progressive deadweight accumulation across header lifting beams, crown headers,
+     side-shift/swivel assemblies, hydraulic telescopic legs, gantry tracks, and
+     optional hardwood support arrays.
+  3. Internal beam shear force V(x) and bending moment M(x) diagrams evaluated via
+     Heaviside step functions across 60 equidistant intervals.
+  4. Actual ground contact bearing pressure ($q_{\text{actual}}$ in $\text{kN/m}^2$)
+     based on a directional $45^\circ$ longitudinal dispersion model (track height
+     dispersion on direct concrete slab; timber-to-slab concrete dispersion when
+     hardwood blocks are used) and zero transverse dispersion ($0^\circ$).
+  5. Three-tier utilization gating:
+     - Tier 1: Lifting Beam Safe Capacity Ceiling
+     - Tier 2: Gantry Cylinder Extension Stage Capacity (Option A vs. Option B)
+     - Tier 3: Allowable Floor & Slab Bearing Stress Limits
+
+
+2. STRUCTURAL MECHANICS & MATHEMATICAL FORMULATION
+--------------------------------------------------------------------------------
+
+2.1 Applied Suspended Load & Dynamic Amplification
+The total applied hook force incorporates the dynamic hoisting factor ($\phi$) to
+account for dynamic inertia, sling elongation, and hydraulic control pulsing:
+
+$$P_{\text{dyn}} = P \cdot \phi \cdot \frac{g}{1000} \quad [\text{kN}]$$
+
+Where:
+  - $P$    = Gross suspended payload ($\text{kg}$)
+  - $\phi$ = Hoisting / dynamic factor (dimensionless, typically $1.00\text{ to }1.25$
+             pursuant to EN 13001-2 / DIN 15018)
+  - $g$    = $9.80665\ \text{m/s}^2$ (standard gravity)
+
+
+2.2 Beam-Level Statics (Reactions at Crown Supports)
+
+Configuration 1: Single Hook Point Load
+For an eccentric single hook located at distance $x$ from the center of Support A
+along clear span $L$:
+
+$$R_{\text{hook}, A} = P_{\text{dyn}} \cdot \left(\frac{L - x}{L}\right)$$
+$$R_{\text{hook}, B} = P_{\text{dyn}} \cdot \left(\frac{x}{L}\right)$$
+
+Configuration 2: Dual Hook (Equal 50/50 Split)
+When rigging with a spreader frame or dual hoist blocks separated by distance
+$L_{\text{spread}}$, centered at $x_{\text{center}}$ (constrained such that
+$0 \le x_1 \le x_2 \le L$):
+
+$$x_1 = x_{\text{center}} - \frac{L_{\text{spread}}}{2}, \quad x_2 = x_{\text{center}} + \frac{L_{\text{spread}}}{2}$$
+$$P_1 = P_2 = \frac{P_{\text{dyn}}}{2}$$
+$$R_{\text{hook}, A} = \frac{P_{\text{dyn}}}{2} \cdot \left[\frac{(L - x_1) + (L - x_2)}{L}\right]$$
+$$R_{\text{hook}, B} = \frac{P_{\text{dyn}}}{2} \cdot \left[\frac{x_1 + x_2}{L}\right]$$
+
+Header Lifting Beam Deadweight Distribution
+The self-weight of the lifting beam ($W_{\text{beam}}$ in $\text{kN}$) is treated
+as an ideal uniformly distributed load ($w_{\text{beam}} = \frac{W_{\text{beam}}}{L}$),
+distributing equally to each crown header:
+
+$$R_{\text{beam}, A} = R_{\text{beam}, B} = \frac{W_{\text{beam}}}{2} = \frac{m_{\text{beam}} \cdot g}{2 \cdot 1000}$$
+
+Total Crown Reaction Force ($F_{\text{crown}}$)
+The total mechanical reaction applied directly to the top of each hydraulic
+gantry tower is:
+
+$$F_{\text{crown}, A} = R_{\text{hook}, A} + R_{\text{beam}, A} \quad [\text{kN}]$$
+$$F_{\text{crown}, B} = R_{\text{hook}, B} + R_{\text{beam}, B} \quad [\text{kN}]$$
+
+
+2.3 Internal Forces: Shear Force & Bending Moment Distributions
+The lifting beam internal shear force $V(x)$ and bending moment $M(x)$ along the
+longitudinal axis ($0 \le x \le L$) are evaluated using piecewise equilibrium
+equations:
+
+$$V(x) = R_{\text{crown}, A} - (w_{\text{beam}} \cdot x) - \sum_{i} P_i \cdot \mathcal{H}(x - x_i)$$
+$$M(x) = R_{\text{crown}, A} \cdot x - \frac{1}{2} w_{\text{beam}} \cdot x^2 - \sum_{i} P_i (x - x_i) \cdot \mathcal{H}(x - x_i)$$
+
+Where $\mathcal{H}(x - x_i)$ is the Heaviside step function:
+
+$$\mathcal{H}(x - x_i) = \begin{cases} 0 & x < x_i \\ 1 & x \ge x_i \end{cases}$$
+
+The analyzer samples these equations at 60 equidistant discrete intervals across
+the span (plus exact point-load ordinates) to render the Shear Force Diagram (SFD)
+and Bending Moment Diagram (BMD).
+
+
+3. FLOOR LOADING & LONGITUDINAL 45° DISPERSION PHYSICS
+--------------------------------------------------------------------------------
+
+3.1 Cumulative Vertical Base Force
+The total vertical force exerted by each gantry assembly onto its supporting track
+and foundation accumulates deadweights that do not stress the header beam:
+
+$$F_{\text{base}, i} = F_{\text{crown}, i} + W_{\text{crown\_dead}} + W_{\text{tracks\_tower}} + W_{\text{track\_unit}} \quad [\text{kN}]$$
+
+Where:
+  - $W_{\text{crown\_dead}}$ = Combined weight of hydraulic crown header, side-shift
+                               cylinders, and top swivel bearings per tower ($\text{kN}$).
+  - $W_{\text{tracks\_tower}}$ = Weight of telescopic stages, main cylinder barrels,
+                                 propulsion drives, and chassis shoe per tower ($\text{kN}$).
+  - $W_{\text{track\_unit}}$ = Track self-weight plus user-entered hardwood
+                               support mass, when selected, per tower ($\text{kN}$).
+
+
+3.2 Ground Contact Area & Dual-Interface 45° Dispersion Geometry
+Depending on the selected Track Bearing Interface mode, longitudinal $45^\circ$
+dispersion occurs at one distinct structural layer while transverse spread remains
+strictly $0^\circ$:
+
+Mode 1 — Direct Track-on-Slab (`Track on slab`):
+When the steel track bears directly on the concrete slab, $45^\circ$ longitudinal
+dispersion occurs **solely through the steel track profile depth ($h_{\text{track}}$)**.
+Concrete slab thickness ($h_{\text{slab}}$) is disabled and excluded from dispersion
+in this mode:
+
+      [  Gantry Shoe (L_base)  ]
+    ------------------------------  <- top of steel gantry track
+      \                        /
+       \  45° spread (h_track)/     h_track
+        \                    /
+    ==============================  <- track-to-slab bearing interface
+    [<--------- L_eff ---------->]
+
+$$L_{\text{eff}} = L_{\text{base}} + 2 \cdot h_{\text{track}} \quad [\text{mm}]$$
+$$W_{\text{eff}} = W_{\text{track}} \quad [\text{mm}] \quad (0^\circ\text{ transverse spread})$$
+
+Mode 2 — Hardwood Block Array (`Hardwood block array`):
+When hardwood dunnage/blocks are placed beneath the gantry track, the $45^\circ$
+track dispersion is removed and $45^\circ$ longitudinal dispersion is evaluated
+**solely at the contact interface between the hardwood blocks and the concrete slab**
+through concrete slab thickness $h_{\text{slab}}$ (default $200\text{ mm}$, enabled
+exclusively in hardwood mode):
+
+      [  Gantry Shoe / Track Rail  ]    <- no 45° track cone in hardwood mode
+      [ Block 1 ]  gap  [ Block 2 ]     <- hardwood blocks (w_profile x h_wood)
+    --------------------------------    <- hardwood-to-concrete interface
+      \         \      /         /
+       \  45°    \    /   45°   /       h_slab
+    ================================    <- effective slab dispersion horizon
+    [<------------ L_eff ----------->]
+
+Hardwood Block Constraints & Geometry:
+  - Available transverse block lengths ($l_{\text{block}}$): $1000\text{ to }1600\text{ mm}$
+    in $100\text{ mm}$ increments; selected $l_{\text{block}}$ must exceed $W_{\text{track}}$.
+    If no preset exceeds $W_{\text{track}}$, Tier 3 bearing results are suppressed
+    and the overall gate flags `INVALID HARDWOOD GEOMETRY`.
+  - Longitudinal profile width ($w_{\text{profile}}$, default $200\text{ mm}$ in $100\text{ mm}$
+    steps), height ($h_{\text{wood}}$, default $100\text{ mm}$), blocks per rail ($n$),
+    clear gap ($s$), and timber mass per support ($m_{\text{wood}}$) are configured
+    in the sidebar.
+  - Each block footprint $[x_i, x_i + w_{\text{profile}}]$ expands at the
+    hardwood-to-slab surface by $\pm h_{\text{slab}}$; overlapping cones merge:
+
+$$I_i = [x_i, x_i + w_{\text{profile}}], \qquad I_i' = [x_i - h_{\text{slab}}, x_i + w_{\text{profile}} + h_{\text{slab}}]$$
+$$L_{\text{eff}} = \operatorname{length}\left(\bigcup_i I_i'\right) \quad [\text{mm}]$$
+$$W_{\text{eff}} = l_{\text{block}} \quad [\text{mm}] \quad (0^\circ\text{ transverse spread})$$
+
+Contact Bearing Area ($A_{\text{eff}}$) and Pressure ($q$):
+
+$$A_{\text{eff}} = \frac{L_{\text{eff}} \cdot W_{\text{eff}}}{1\,000\,000} \quad [\text{m}^2]$$
+$$q_A = \frac{F_{\text{base}, A}}{A_{\text{eff}}} \quad \left[\frac{\text{kN}}{\text{m}^2}\right], \qquad q_B = \frac{F_{\text{base}, B}}{A_{\text{eff}}} \quad \left[\frac{\text{kN}}{\text{m}^2}\right]$$
+
+
+4. MULTI-TIER STRUCTURAL VERIFICATION & GATING
+--------------------------------------------------------------------------------
+The software performs three concurrent structural checks (plus an eccentric load
+asymmetry check), flagging any violation with real-time UI banners and color-coded
+status warnings (`PASS <= 85%`, `CAUTION 85–100%`, `OVERLOAD > 100%`):
+
+Tier 1: Lifting Beam Safe Capacity Ceiling
+  - Primary Check (Default): $\max(F_{\text{crown}, A}, F_{\text{crown}, B}) \le \text{Capacity}_{\text{beam\_rated}}$
+  - Secondary Basis Toggle: Total Factored Payload $P_{\text{dyn}} \le \text{Capacity}_{\text{beam\_rated}}$ (Gross SWL)
+  - Criteria: Reaction forces at beam ends (or gross factored hook load) must not
+    exceed the pre-approved manufacturer Safe Working Load (SWL) for the selected
+    profile. Reserve margin is displayed in both $\text{kN}$ and $\text{kg}$.
+  - Note: This check is treated as a hard ceiling. Rigging engineers must verify
+    unbraced compression flange lengths against lateral torsional buckling (LTB)
+    when using long spans.
+
+Tier 2: Gantry Cylinder Extension Check (Option A vs. Option B)
+  - Option A (Active by Default): Evaluates $F_{\text{crown}, A}$ and $F_{\text{crown}, B}$
+    against the manufacturer's 2-point lift rating for the selected cylinder stage
+    (`Retracted`, `Stage 1`, `Stage 2`, or `Stage 3` where supported by the unit).
+    - Note on 2-Stage Units: `308303 / 308488` (`Lift Systems 70T`) has only two
+      extension stages (`Retracted`, `Stage 1`, `Stage 2`); the `Stage 3` button
+      is automatically disabled in the UI for this unit.
+    - Missing Rating Gate: If a unit/stage has no published 2-point rating
+      (`cap2pt: null`, e.g., `Greiner 620XL T` or `Lift Systems 620T II`), the
+      software marks Tier 2 as `NO PUBLISHED 2-PT RATING` (`KEINE 2-PKT.-FREIGABE`),
+      refuses to assume an arbitrary 50% split, and sets the Overall Verification
+      Gate to `UNVERIFIED (NO 2-PT RATING)` instead of `PASS VERIFIED`.
+  - Option B (Bypass Mode): Bypasses cylinder stage verification for preliminary
+    equilibrium framing or when 4-point coupled synchronized lifts are verified via
+    independent manufacturer chart software.
+
+Tier 3: Floor & Slab Bearing Stress Check
+  - Check: $\max(q_A, q_B) \le q_{\text{allowable}}$
+  - Criteria: Contact pressure must remain below the engineer-verified slab capacity
+    (typically $30\text{ to }250\ \text{kN/m}^2$ for industrial slabs). If
+    $q > q_{\text{allowable}}$, a violation alert triggers and calculates the minimum
+    required load-spreading mat area per tower:
+    $$A_{\text{mat,min}} = \frac{\max(F_{\text{base}, A}, F_{\text{base}, B})}{q_{\text{allowable}}} \quad [\text{m}^2]$$
+
+Eccentric Load Distribution Warning
+  - Check: Triggers when either support carries $> 70\%$ of the total crown reaction
+    ($F_{\text{crown}, i} / (F_{\text{crown}, A} + F_{\text{crown}, B}) > 0.70$),
+    reminding operators to verify synchronous cylinder extension control and
+    differential slab settlement.
+
+
+5. SOFTWARE ARCHITECTURE, LOCALIZATION & IMPLEMENTATION DETAILS
+--------------------------------------------------------------------------------
+Runtime Environment:
+  - Client-side HTML5, vanilla JavaScript (ES6+), and CSS3 (Tailwind CSS via CDN).
+  - Zero backend or server dependencies; runs directly in modern browsers.
+  - Diagrams powered by read-only inline SVG (Free-Body, Tower & Track Schematics)
+    and Chart.js (60-interval SFD & BMD).
+
+Project File Structure:
+  - `index.html`                  : Application shell, sidebar input form, 3-tier
+                                    verification cards, read-only SVG canvases,
+                                    Chart.js view, and equilibrium table.
+  - `data/gantry-units.js`        : `INVENTORY_GANTRIES` catalog (10 gantry units:
+                                    unit weights, base shoe dimensions
+                                    $L_{\text{base}} \times W_{\text{base}}$, and
+                                    stage pin heights / 2-point SWL ratings).
+  - `data/gantry-tracks.js`       : `INVENTORY_TRACKS` catalog (15 track profiles:
+                                    depth $h_{\text{track}}$, flange width
+                                    $W_{\text{track}}$, and rail section mass).
+  - `data/beams.js`               : `INVENTORY_BEAMS` catalog (25 header lifting
+                                    beams with clear span $L$, cross-section
+                                    $W \times H$, self-weight, and rated SWL).
+  - `css/styles.css`              : Custom dark-slate UI rules, centered number
+                                    inputs, chevron steppers, passive CAD styles,
+                                    and `@media print` rules.
+  - `js/tailwind-config.js`       : Tailwind CSS theme and brand color config.
+  - `js/app.js`                   : Core statics engine, dual dispersion model,
+                                    UI synchronization, passive SVG renderers, and
+                                    Chart.js internal force plotter.
+  - `docs/technical-spec-rev3.2.txt`: Updated Technical Specification (this file).
+
+Bilingual Interface (EN / DE):
+  - Built-in runtime language switcher supporting English (`EN`) and German (`DE`).
+  - Translates static labels, dynamic verification badges, Chart.js axes,
+    dispersion formulas, hardwood summaries, SVG callouts/headers, equilibrium
+    breakdown rows, and Section 6 boundary conditions using German structural
+    engineering terminology (DIN 15018 / EN 13001-2).
+
+Input Control & Read-Only CAD Schematics:
+  - Strict Sidebar-Only Controls: All numerical and discrete parameters are edited
+    exclusively via the left-hand sidebar form inputs (`<input>`, `<select>`,
+    sliders, presets, and custom chevron steppers). Zero interactive grips, drag
+    handles, or click-to-focus tags exist on any SVG schematic canvas.
+  - Non-Intrusive Numeric Input Handling: Center-aligned numeric fields distinguish
+    active typing (`oninput`) from committed validation (`onchange`/`onblur`) so
+    multi-digit entries are never prematurely clamped mid-keystroke.
+  - Read-Only CAD Schematics:
+    1. Right Column — `GA-01` Free-Body Structural Schematic (Frontal Portal View):
+       Renders Tower A, Tower B, and the header lifting beam in Frontal Elevation
+       with $0^\circ$ lateral projection edges and title-block note reflecting the
+       active dispersion mode ($h_{\text{track}}$ or hardwood $h_{\text{slab}}$).
+    2. Left Column Section 2 — Simplified Hydraulic Gantry Tower Schematic:
+       Frontal view of the isolated tower unit (dashed header beam, swivel pad,
+       twin-pin crown clevis, twin telescopic cylinders, housing, 4-wheel bogie,
+       primary frontal $W_{\text{base}}$, vertical $H_{\text{stage}}$, and passive
+       read-only parameter callouts with $L_{\text{base}}$ noted as secondary).
+    3. Left Column Section 3 — Gantry Track & $45^\circ$ Dispersion Schematic:
+       Split left/right CAD sheet showing the frontal $0^\circ$ track cross-section
+       on the left and the longitudinal $45^\circ$ dispersion diagram on the right:
+       diagonal $45^\circ$ cone inside the steel track height ($h_{\text{track}}$)
+       in `Track on slab` mode, versus diagonal $45^\circ$ cones exclusively from
+       the hardwood-to-slab interface through $h_{\text{slab}}$ in `Hardwood block
+       array` mode.
+  - Scenario Presets & PDF Export: Quick presets (`180t Rotor (Dual)`,
+    `85t Trafo (Single)`, `50t Press`) and print-optimized stylesheet formatting.
+
+Input & Unit Standards:
+  - Dimensions            : Millimeters ($\text{mm}$)
+  - Masses                : Kilograms ($\text{kg}$) and Metric Tonnes ($\text{t}$)
+  - Forces & Moments      : Kilonewtons ($\text{kN}$) and Kilonewton-meters ($\text{kNm}$)
+  - Soil/Floor Pressures  : Kilonewtons per square meter ($\text{kN/m}^2$)
+
+
+6. ENGINEERING LIMITATIONS & BOUNDARY CONDITIONS
+--------------------------------------------------------------------------------
+Users must recognize the following boundary constraints when utilizing this analyzer:
+
+  1. Quasi-Static 2D Model:
+     The analyzer models 2D planar equilibrium ($\Sigma F_z = 0, \Sigma M = 0$). It
+     does not compute 3D lateral crabbing, track misalignments, side-pull, or wind
+     forces.
+  2. Track Span Continuity:
+     Calculations assume track sections are continuously supported by a uniform, flat
+     slab. If tracks span across floor pits, drainage trenches, or expansion joints,
+     rails must be engineered as unsupported bridge spans.
+  3. Rigid Base & Zero Lateral Spread Assumption:
+     Ground pressure is calculated as an average equivalent contact stress
+     ($q = F_{\text{base}} / A_{\text{eff}}$) with $45^\circ$ longitudinal and $0^\circ$
+     transverse dispersion. Edge stress concentrations due to base tilting, timber
+     crushing perpendicular to grain ($f_{c,90,d}$), or punching shear ($v_{\text{Ed}}$)
+     are not automatically verified.
+  4. Sign-Off Requirement:
+     This tool serves as a preliminary lift planning aid and does not supersede
+     signed and stamped lift studies executed by a licensed Professional Engineer
+     (PE / Prüfingenieur).
+
+================================================================================
+End of Technical Specification (ENG-WP-HGA-001 Rev 3.2)
+================================================================================

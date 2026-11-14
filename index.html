@@ -1,78 +1,1252 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hydraulic Gantry Crane & Track Load Analyzer</title>
+  <title>Heavy Hydraulic Gantry & Track Bearing Load Analyzer | ENG-WP-HGA-001 Rev 3.3</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for SFD & BMD -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 15px;
-    }
-    input[type="range"] {
-      accent-color: #2563eb;
-    }
-    @media print {
-      .no-print { display: none !important; }
-      body { background: white !important; color: black !important; font-size: 12px; }
-      .print-break { page-break-after: always; }
-      .card-shadow { box-shadow: none !important; border: 1px solid #cbd5e1 !important; }
-    }
-  </style>
+  <!-- External Equipment Inventory Data -->
+  <script src="./data/gantry-units.js"></script>
+  <script src="./data/gantry-tracks.js"></script>
+  <script src="./data/beams.js"></script>
+  <script src="./js/tailwind-config.js"></script>
+
+  <link rel="stylesheet" href="./css/styles.css" />
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <!-- Top Navigation Bar -->
-  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40 shadow-md">
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Top Navigation & Action Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/95 sticky top-0 z-40 backdrop-blur-md px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 shadow-lg">
     <div class="flex items-center gap-3">
-      <div class="p-2.5 bg-blue-600 rounded-lg text-white font-black text-xl shadow">
-        ⚡
+      <div class="p-2.5 bg-gradient-to-br from-sky-500 via-indigo-600 to-amber-500 rounded-xl shadow-lg shadow-sky-950/60 flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
       </div>
       <div>
-        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          Gantry Crane & Track Load Analyzer
-          <span class="text-xs bg-blue-900 text-blue-300 px-2 py-0.5 rounded border border-blue-700 font-mono">v3.0 Dual-Hook</span>
-        </h1>
-        <p class="text-xs text-slate-400">Structural Statics, Lifting Inventory & Longitudinal 45° Track Ground Stress</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 data-i18n="app_title" class="text-base lg:text-lg font-bold text-white tracking-tight">
+            Heavy Hydraulic Gantry &amp; Track Bearing Load Analyzer
+          </h1>
+          <span data-i18n="app_badge_rev" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">Rev 3.3 &bull; 2006/42/EC</span>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 hidden sm:inline">ENG-WP-HGA-001</span>
+        </div>
+        <p data-i18n-html="app_subtitle" class="text-xs text-slate-400">
+          Single/Dual-Hook Statics &bull; Longitudinal 45&deg; Dispersion &bull; Zero Transverse Spread &bull; Strictly mm &bull; kg &bull; kN/m&sup2;
+        </p>
       </div>
     </div>
-    <div class="flex items-center gap-3 no-print">
-      <button id="btnPrint" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-semibold rounded-lg border border-slate-600 transition flex items-center gap-2 shadow-sm">
-        <span>🖨️</span> Print / PDF Report
+
+    <!-- Quick Presets, Language Switcher & Header Controls -->
+    <div class="flex flex-wrap items-center gap-2 no-print">
+      <!-- Language Switcher (EN / DE) -->
+      <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-mono" role="group" aria-label="Language Switcher">
+        <button type="button" id="btnLangEN" onclick="setLanguage('en')" class="px-2.5 py-1 rounded-md bg-sky-600 text-white font-bold transition text-[11px]">
+          EN
+        </button>
+        <button type="button" id="btnLangDE" onclick="setLanguage('de')" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white font-bold transition text-[11px]">
+          DE
+        </button>
+      </div>
+
+      <div class="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs">
+        <span data-i18n="presets_label" class="text-slate-400 text-[11px] px-2 font-medium">Scenario Presets:</span>
+        <button data-i18n="preset_rotor" onclick="loadPreset('turbine180')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-sky-400 font-medium transition text-[11px]" title="180t Rotor with Dual-Hook Spreader">180t Rotor (Dual)</button>
+        <button data-i18n="preset_trafo" onclick="loadPreset('transformer85')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-amber-400 font-medium transition text-[11px]" title="85t Eccentric Transformer Lift">85t Trafo (Single)</button>
+        <button data-i18n="preset_press" onclick="loadPreset('press50')" class="px-2.5 py-1 rounded hover:bg-slate-800 text-emerald-400 font-medium transition text-[11px]" title="50t Press Crown Installation">50t Press</button>
+      </div>
+
+      <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition shadow-sm">
+        <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        <span data-i18n="btn_print">Print / PDF Report</span>
       </button>
-      <button id="btnReset" class="px-4 py-2 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 text-sm font-semibold rounded-lg border border-rose-700/50 transition">
+
+      <button data-i18n="btn_reset" onclick="resetDefaults()" class="px-3 py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 text-xs font-medium transition">
         Reset Defaults
       </button>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <!-- Main Single-Screen Analysis Workspace -->
+  <main class="max-w-7xl mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-    <!-- LEFT COLUMN: INPUT CONTROLS (5 Cols) -->
-    <section class="lg:col-span-5 space-y-5 no-print">
+    <!-- LEFT COLUMN: Inventory Selection, Hook Config & Geometric Controls (5 cols) -->
+    <div class="lg:col-span-5 space-y-4">
 
-      <!-- 1. Equipment Inventory Selectors -->
-      <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-700 pb-2">
-          <h2 class="text-base font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-            <span>📦</span> Equipment Inventory Pre-sets
-          </h2>
-          <span class="text-xs text-slate-400 font-mono">Direct Auto-fill</span>
+      <!-- Tier 2 Mode Toggle: Option A vs Option B -->
+      <div class="bg-gradient-to-r from-slate-900 to-slate-900/80 rounded-2xl border border-slate-800 p-3.5 shadow-lg">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span data-i18n="tier2_mode_title">Tier 2 Verification Mode</span>
+          </span>
+          <span id="modeBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-800">Option A Active</span>
         </div>
 
-        <!-- Lifting Beam Selector -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">Select Lifting Beam (Profile & Length)</label>
-          <select id="beamPreset" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="custom">-- Custom Manual Input --</option>
-            <option value="601001" data-profile="HEB 300" data-len="2290" data-wt="255" data-cap="58400">601001/002 | HEB 300 (L=2290mm, SW=255kg, Cap=58.4t)</option>
-            <option value="601003" data-profile="HEB 300" data-len="3700" data-wt="415" data-cap="58400">601003/004 | HEB 300 (L=3700mm, SW=415kg, Cap=58.4t)</option>
-            <option value="601005" data-profile="HEM 220" data-len="4003" data-wt="440" data-cap="60000">601005/006 | HEM 220 (L=4003mm, SW=440kg, Cap=60.0t)</option>
-            <option value="601009" data-profile="HEB 160" data-len="4500" data-wt="180" data-cap="10000">601009-012 | HEB 160 (L=4500mm, SW=180kg, Cap=10.0t)</option>
-            <option value="601013" data-profile="HEB 300" data-len="4707" data-wt="525" data-cap="58400">601013/014 | HEB 300 (L=4707mm, SW=525kg, Cap=58.4t)</option>
-            <option value="601015" data-profile="HEM 220" data-len="6006" data-wt="690" data-cap="60000">601015/016 | HEM 220 (L=6006mm, SW=690kg, Cap=60.0t)</option>
-            <option value="601017" data-profile="HEB 300" data-len="6000" data-wt="675" data-cap="58400">601017 | HEB 300 (L=6000mm, SW=675kg, Cap=58.4t)</option>
-            <option value="601018" data-profile="HEB 400" data-len="6006" data-wt="880" data-cap="80000">601018/019 | HEB 400 (L=6006mm, SW=880kg, Cap=80.0t)</option>
-            <option value="601020" data-profile="HEM 400" data-len="6000" data-wt="2210" data-cap="200000">601020/021 | HEM 400 (L=6000mm, SW=2210kg, Cap=200t)</option>
-            <option value="601022" data-profile="2x INP 400" data-len="609
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button id="btnModeA" onclick="setMode('A')" class="p-2.5 rounded-xl border border-sky-500 bg-sky-950/70 text-white font-medium text-left transition flex flex-col justify-between">
+            <span class="font-bold text-sky-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              <span data-i18n="opt_a_title">Option A (Default)</span>
+            </span>
+            <span data-i18n="opt_a_desc" class="text-[11px] text-slate-300 mt-1 leading-tight">2-Pt Cylinder Stage Rating Gate</span>
+          </button>
+
+          <button id="btnModeB" onclick="setMode('B')" class="p-2.5 rounded-xl border border-slate-800 bg-slate-950/50 text-slate-400 hover:text-white font-medium text-left transition flex flex-col justify-between">
+            <span class="font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-600"></span>
+              <span data-i18n="opt_b_title">Option B (Bypass)</span>
+            </span>
+            <span data-i18n-html="opt_b_desc" class="text-[11px] text-slate-400 mt-1 leading-tight">Equilibrium &amp; Floor Statics Only</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. Lifting Beam Inventory & Hook Configuration Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+            <span data-i18n-html="sec1_title">1. Lifting Beam &amp; Hook Configuration</span>
+          </h2>
+          <span data-i18n-html="sec1_ref" class="text-[12px] font-mono text-slate-400">Sec 2.1 &amp; 2.2</span>
+        </div>
+
+        <div class="space-y-3.5 text-xs">
+          <!-- Beam Selection Dropdown -->
+          <div>
+            <label for="select_beam" data-i18n="lbl_select_beam" class="font-medium text-slate-300 block mb-1">Select Header Lifting Beam (Inventory)</label>
+            <select id="select_beam" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 focus:outline-none custom-scroll" onchange="onSelectBeam()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Beam Geometry and Specs Display -->
+          <div class="grid grid-cols-2 gap-2.5 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 font-mono text-[12px]">
+            <div>
+              <span data-i18n-html="lbl_beam_profile" class="text-slate-500 block text-[11px] uppercase font-sans">Profile &amp; Cross-Section</span>
+              <span id="disp_beam_profile" class="font-bold text-sky-400 text-xs">HEM 600</span>
+              <span id="disp_beam_dims" class="text-slate-400 block text-[11px]">305 &times; 620 mm</span>
+            </div>
+            <div>
+              <span data-i18n="lbl_beam_swl" class="text-slate-500 block text-[12px] uppercase font-sans">Manufacturer Rated SWL</span>
+              <span id="disp_beam_cap_kg" class="font-bold text-amber-300 text-xs">230,000 kg</span>
+              <span id="disp_beam_cap_kN" class="text-slate-400 block text-[12px]">(2255.5 kN / 230.0 t)</span>
+            </div>
+          </div>
+
+          <!-- Clear Span (L) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_L" data-i18n-html="lbl_clear_span" class="font-medium text-slate-300">Clear Gantry Span <span class="text-sky-400 font-mono">(L)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_L_val" class="font-bold text-white text-sm">8000</span> mm
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_L" min="1500" max="20000" step="50" value="8000" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('L', this.value, 'range')">
+              <div class="flex items-stretch w-28 shrink-0 bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
+                <input type="number" id="input_L" value="8000" step="50" min="500" max="30000" class="w-full px-2 py-1 bg-transparent text-center font-mono text-white text-xs focus:outline-none" oninput="syncParam('L', this.value, 'typing')" onchange="syncParam('L', this.value, 'commit')" onblur="syncParam('L', this.value, 'commit')">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-6 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_L', 1, 'L')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80" title="Increase Span">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_L', -1, 'L')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-800 active:bg-slate-700 transition" title="Decrease Span">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p id="spanOverrunInline" class="hidden text-[10px] font-mono text-rose-300 mt-1"></p>
+          </div>
+
+          <!-- Hook Rigging Configuration Selector (Config 1 vs Config 2) -->
+          <div class="pt-2 border-t border-slate-800/80">
+            <label data-i18n-html="lbl_hook_cfg" class="font-medium text-slate-300 block mb-1.5">Rigging Hook Configuration <span class="text-slate-500 font-mono text-[10px]">(Sec 2.2)</span></label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btnHookSingle" onclick="setHookConfig('single')" class="py-2 px-2.5 rounded-xl border border-amber-500 bg-amber-950/40 text-amber-200 font-semibold text-left transition flex items-center justify-between">
+                <div>
+                  <div data-i18n="cfg1_title" class="text-xs font-bold text-amber-400">Config 1: Single Hook</div>
+                  <div data-i18n="cfg1_desc" class="text-[10px] text-slate-400">Point load at offset x</div>
+                </div>
+                <span class="text-sm font-mono font-bold text-amber-400">1&times;</span>
+              </button>
+              <button type="button" id="btnHookDual" onclick="setHookConfig('dual')" class="py-2 px-2.5 rounded-xl border border-slate-800 bg-slate-950/60 text-slate-400 hover:text-white font-semibold text-left transition flex items-center justify-between">
+                <div>
+                  <div data-i18n="cfg2_title" class="text-xs font-bold">Config 2: Dual Hook</div>
+                  <div data-i18n="cfg2_desc" class="text-[10px] text-slate-400">Equal 50/50 split (L_spread)</div>
+                </div>
+                <span class="text-sm font-mono font-bold">2&times;</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Hook Position / Center (x or x_center) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_x" id="label_x_title" class="font-medium text-slate-300">Hook Offset from Support A <span class="text-amber-400 font-mono">(x)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_x_val" class="font-bold text-amber-400 text-sm">2500</span> mm <span class="text-slate-500 text-[11px]">(<span id="label_x_pct">31%</span>)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_x" min="0" max="8000" step="50" value="2500" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('x', this.value, 'range')">
+              <div class="flex items-stretch w-28 shrink-0 bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500/30 transition">
+                <input type="number" id="input_x" value="2500" step="50" min="0" max="30000" class="w-full px-2 py-1 bg-transparent text-center font-mono text-amber-300 text-xs focus:outline-none" oninput="syncParam('x', this.value, 'typing')" onchange="syncParam('x', this.value, 'commit')" onblur="syncParam('x', this.value, 'commit')">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-6 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_x', 1, 'x')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80" title="Increase Offset">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_x', -1, 'x')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition" title="Decrease Offset">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <span data-i18n="lbl_support_a_0">Support A (0 mm)</span>
+              <button type="button" data-i18n="btn_center_load" onclick="centerHook()" class="text-sky-400 hover:text-sky-300 underline font-sans">Center Load (L / 2)</button>
+              <span><span data-i18n="lbl_support_b">Support B</span> (<span id="label_x_max">8000 mm</span>)</span>
+            </div>
+          </div>
+
+          <!-- Dual-Hook Spread Distance (L_spread) - Shown when Config 2 is active -->
+          <div id="dualHookSpreadBox" class="hidden p-3 rounded-xl bg-amber-950/20 border border-amber-800/50 space-y-2">
+            <div class="flex justify-between items-center">
+              <label for="input_L_spread" data-i18n-html="lbl_dual_spread" class="font-medium text-amber-300">Dual Hoist Spread <span class="font-mono">(L_spread)</span></label>
+              <div class="font-mono text-amber-200">
+                <span id="label_L_spread_val" class="font-bold text-sm">2000</span> mm
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_L_spread" min="0" max="6000" step="50" value="2000" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('L_spread', this.value, 'range')">
+              <div class="flex items-stretch w-28 shrink-0 bg-slate-950 border border-amber-700/60 rounded-lg overflow-hidden focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500/30 transition">
+                <input type="number" id="input_L_spread" value="2000" step="50" min="0" max="25000" class="w-full px-2 py-1 bg-transparent text-center font-mono text-amber-300 text-xs focus:outline-none" oninput="syncParam('L_spread', this.value, 'typing')" onchange="syncParam('L_spread', this.value, 'commit')" onblur="syncParam('L_spread', this.value, 'commit')">
+                <div class="flex flex-col border-l border-amber-900/50 bg-slate-900/90 w-6 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_L_spread', 1, 'L_spread')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80" title="Increase Spread">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_L_spread', -1, 'L_spread')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition" title="Decrease Spread">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1 text-[11px] font-mono text-slate-300 border-t border-amber-900/40">
+              <div><span data-i18n="lbl_hook1">Hook 1</span> (x&#8321;): <span id="disp_x1_mm" class="text-amber-300 font-bold">1500 mm</span></div>
+              <div class="text-right"><span data-i18n="lbl_hook2">Hook 2</span> (x&#8322;): <span id="disp_x2_mm" class="text-amber-300 font-bold">3500 mm</span></div>
+            </div>
+          </div>
+
+          <!-- Gross Suspended Payload (P) -->
+          <div class="pt-2 border-t border-slate-800">
+            <div class="flex justify-between items-center mb-1">
+              <label for="input_P_kg" data-i18n-html="lbl_payload" class="font-medium text-slate-300">Gross Suspended Payload <span class="text-amber-400 font-mono">(P)</span></label>
+              <div class="font-mono text-slate-400">
+                <span id="label_P_kg" class="font-bold text-amber-300 text-sm">45,000</span> kg <span class="text-slate-500 text-[11px]">(<span id="label_P_t">45.0</span> t)</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_P_kg" min="0" max="300000" step="500" value="45000" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('P_kg', this.value, 'range')">
+              <div class="flex items-stretch w-28 shrink-0 bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500/30 transition">
+                <input type="number" id="input_P_kg" value="45000" step="250" min="0" class="w-full px-2 py-1 bg-transparent text-center font-mono text-amber-300 text-xs focus:outline-none" oninput="syncParam('P_kg', this.value, 'typing')" onchange="syncParam('P_kg', this.value, 'commit')" onblur="syncParam('P_kg', this.value, 'commit')">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-6 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_P_kg', 1, 'P_kg')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80" title="Increase Payload">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_P_kg', -1, 'P_kg')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition" title="Decrease Payload">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Hoisting Factor (phi) & Beam Self-Weight (m_beam) -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label for="input_phi" class="font-medium text-slate-300 flex justify-between items-center mb-1">
+                <span data-i18n-html="lbl_dyn_factor">Dynamic Factor (&phi;)</span>
+                <span id="label_phi" class="text-sky-400 font-mono font-bold">1.10</span>
+              </label>
+              <select id="input_phi" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="1.00" data-i18n="phi_100">1.00 (Static 0%)</option>
+                <option value="1.05" data-i18n="phi_105">1.05 (EN 13001 Gentle)</option>
+                <option value="1.10" data-i18n="phi_110" selected>1.10 (Standard Hoist)</option>
+                <option value="1.15" data-i18n="phi_115">1.15 (DIN 15018 Normal)</option>
+                <option value="1.20" data-i18n="phi_120">1.20 (Heavy Dynamic)</option>
+                <option value="1.25" data-i18n="phi_125">1.25 (Severe Pulse)</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="input_W_beam_kg" data-i18n="lbl_beam_mass" class="font-medium text-slate-300 block mb-1">Beam Mass (m_beam)</label>
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-sky-500 transition">
+                  <input type="number" id="input_W_beam_kg" value="3411" step="10" min="0" class="w-full px-2 py-1.5 bg-transparent text-center font-mono text-white text-xs focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-6 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_beam_kg', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_beam_kg', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-400 font-mono text-xs">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <p id="phiStaticWarning" data-i18n="phi_static_warn" class="hidden text-[10px] font-mono text-amber-300 bg-amber-950/50 border border-amber-800/60 rounded-lg px-2 py-1">
+            Static/non-hoisting factor only: EN 13001-2 / 2006/42/EC requires &phi; &ge; 1.05 for live hoisting.
+          </p>
+
+          <!-- Machinery Directive (2006/42/EC): Horizontal Inertia / Side-Pull & Sync Leveling Tolerance -->
+          <div class="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800/80">
+            <div>
+              <label for="input_alpha_h" data-i18n-html="lbl_alpha_h" class="font-medium text-slate-300 block mb-1">Side-Pull / Travel Factor (&alpha;_h)</label>
+              <select id="input_alpha_h" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="0.00" data-i18n="alpha_000">0.00 (Stationary 0%)</option>
+                <option value="0.05" data-i18n="alpha_005" selected>0.05 (EN 13001 5%)</option>
+                <option value="0.10" data-i18n="alpha_010">0.10 (Severe Skew 10%)</option>
+              </select>
+            </div>
+            <div>
+              <label for="input_level_tol" data-i18n-html="lbl_level_tol" class="font-medium text-slate-300 block mb-1">Out-of-Level Limit (mm/m)</label>
+              <select id="input_level_tol" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="1.0" data-i18n="lvl_10">1.0 mm/m (Precision Sync)</option>
+                <option value="2.0" data-i18n="lvl_20" selected>2.0 mm/m (2006/42/EC Std)</option>
+                <option value="3.0" data-i18n="lvl_30">3.0 mm/m (Max Limit)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Hydraulic Gantry Towers Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+            <span data-i18n-html="sec2_title">2. Hydraulic Gantry Towers &amp; Deadweights</span>
+          </h2>
+          <span data-i18n-html="sec2_ref" class="text-[11px] font-mono text-slate-400">Sec 3.1 &amp; 4</span>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label for="select_gantry" data-i18n="lbl_select_gantry" class="font-medium text-slate-300 block mb-1">Select Gantry Unit Model (Inventory)</label>
+            <select id="select_gantry" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-indigo-500 focus:outline-none custom-scroll" onchange="onSelectGantry()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Gantry Cylinder Extension Stage (Retracted, Stage 1, Stage 2, Stage 3) -->
+          <div id="stageSelectorContainer" class="p-2.5 rounded-xl bg-slate-950 border border-indigo-900/40 space-y-2 transition">
+            <div class="flex items-center justify-between">
+              <span data-i18n="lbl_cyl_stage" class="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">Cylinder Extension Stage</span>
+              <span id="stageStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800">Stage 1 Active</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-1.5 font-mono text-[11px]">
+              <button type="button" id="btnStage0" data-i18n="stage_0" onclick="setStage(0)" class="py-1.5 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800">
+                Retracted
+              </button>
+              <button type="button" id="btnStage1" data-i18n="stage_1" onclick="setStage(1)" class="py-1.5 px-1.5 rounded-lg bg-indigo-600 text-white font-bold transition text-center shadow-sm">
+                Stage 1
+              </button>
+              <button type="button" id="btnStage2" data-i18n="stage_2" onclick="setStage(2)" class="py-1.5 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800">
+                Stage 2
+              </button>
+              <button type="button" id="btnStage3" data-i18n="stage_3" onclick="setStage(3)" class="py-1.5 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 transition text-center border border-slate-800">
+                Stage 3
+              </button>
+            </div>
+
+            <div class="flex justify-between items-center text-[11px] font-mono text-slate-400 pt-1">
+              <span><span data-i18n="lbl_pin_height">Pin Height:</span> <span id="disp_stage_height" class="text-white font-bold">5857 mm</span></span>
+              <span><span data-i18n="lbl_2pt_rating">2-Pt Rating:</span> <span id="disp_stage_cap" class="text-amber-400 font-bold">310,000 kg</span></span>
+            </div>
+
+            <div id="missingStageAlert" data-i18n-html="missing_stage_alert" class="hidden p-2 rounded bg-amber-950/70 border border-amber-700/80 text-amber-200 text-[10px] font-mono leading-tight">
+              &#9888; NO PUBLISHED 2-PT RATING for this configuration. Per ENG-WP-HGA-001 Sec 4 Tier 2, an arbitrary 50% split is not assumed.
+            </div>
+          </div>
+
+          <!-- Base Geometry (mm) and Tower Mass (kg): W_base Frontal Primary, L_base Longitudinal Secondary -->
+          <div class="grid grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+            <div>
+              <label for="input_base_width_mm" data-i18n="lbl_shoe_width" class="text-indigo-300 font-semibold block text-[10px] font-sans mb-0.5">Shoe Width (W_base)</label>
+              <div class="flex items-stretch bg-slate-950 border border-indigo-700/70 rounded-lg overflow-hidden focus-within:border-indigo-400 transition">
+                <input type="number" id="input_base_width_mm" value="1560" step="10" min="200" class="w-full px-1.5 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_base_width_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_base_width_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label for="input_W_lift_unit_kg" data-i18n="lbl_tower_mass" class="text-slate-300 block text-[10px] font-sans mb-0.5">Tower Mass (W_tower)</label>
+              <div class="flex items-stretch bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-indigo-500 transition">
+                <input type="number" id="input_W_lift_unit_kg" value="6260" step="20" min="0" class="w-full px-1.5 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_W_lift_unit_kg', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_W_lift_unit_kg', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="opacity-85">
+              <label for="input_base_length_mm" data-i18n="lbl_shoe_length" class="text-slate-500 block text-[10px] font-sans mb-0.5" title="Longitudinal dimension along the track (into page — not seen in Frontal View)">L_base (2nd / Side)</label>
+              <div class="flex items-stretch bg-slate-950/70 border border-slate-800 rounded-lg overflow-hidden focus-within:border-indigo-500 transition">
+                <input type="number" id="input_base_length_mm" value="2090" step="10" min="300" class="w-full px-1.5 py-1 bg-transparent text-center text-slate-300 focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_base_length_mm', 1)" class="flex-1 flex items-center justify-center text-slate-500 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_base_length_mm', -1)" class="flex-1 flex items-center justify-center text-slate-500 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Swivel & Side-Shift Deadweight (W_shift) -->
+          <div class="font-mono text-[11px] pt-1">
+            <div>
+              <label for="input_W_shift_kg" data-i18n-html="lbl_shift_mass" class="font-medium text-slate-300 block mb-0.5 text-[11px] font-sans">Side-Shift &amp; Swivel (per tower)</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-indigo-500 transition">
+                  <input type="number" id="input_W_shift_kg" value="170" step="10" min="0" class="w-full px-2 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_shift_kg', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_shift_kg', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-indigo-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-400">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simplified Frontal Hydraulic Gantry Tower Schematic (Section 2 Inputs Only) -->
+          <div class="pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between mb-1.5">
+              <span data-i18n-html="unit_svg_card_title" class="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Hydraulic Gantry Tower Schematic (Frontal View)</span>
+              <span id="gantryUnitBadge" class="schematic-badge">STAGE 1 ACTIVE</span>
+            </div>
+            <div class="schematic-sheet w-full overflow-hidden rounded-lg border relative select-none">
+              <svg id="gantryUnitSvg" class="schematic-svg w-full" viewBox="0 0 460 320" preserveAspectRatio="xMidYMid meet">
+                <rect class="drawing-sheet" x="6" y="6" width="448" height="308" />
+                <g id="gantryUnitLayer"></g>
+              </svg>
+              <div class="schematic-status flex items-center justify-between gap-2 px-2.5 py-1.5 font-mono text-[9.5px]">
+                <span id="gantryUnitDimensionSummary">Frontal Primary: W_base &bull; Secondary (Into Page): L_base</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tracks & Floor Bearing Dispersion (45-degree longitudinal rule) -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span data-i18n-html="sec3_title">3. Gantry Tracks &amp; 45&deg; Dispersion Physics</span>
+          </h2>
+          <span data-i18n="sec3_ref" class="text-[11px] font-mono text-slate-400">Sec 3.2</span>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label for="select_track" data-i18n="lbl_select_track" class="font-medium text-slate-300 block mb-1">Select Gantry Track Profile (Inventory)</label>
+            <select id="select_track" class="w-full px-2.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-emerald-500 focus:outline-none custom-scroll" onchange="onSelectTrack()">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <!-- Track Dimensions & Weight Input -->
+          <div class="grid grid-cols-3 gap-2 font-mono text-[11px]">
+            <div>
+              <label for="input_h_track_mm" data-i18n="lbl_track_depth" class="text-slate-400 block text-[10px] font-sans mb-0.5">Depth (h_track)</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_h_track_mm" value="300" step="10" min="50" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_track_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_track_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_w_track_mm" data-i18n="lbl_track_flange" class="text-slate-400 block text-[10px] font-sans mb-0.5">Flange (W_track)</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_w_track_mm" value="1225" step="10" min="100" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_w_track_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_w_track_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_W_track_unit_kg" data-i18n="lbl_track_mass" class="text-slate-400 block text-[10px] font-sans mb-0.5">Rail Mass (W_rail)</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_W_track_unit_kg" value="1620" step="10" min="0" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_track_unit_kg', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_W_track_unit_kg', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">kg</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 border-t border-slate-800/80 pt-2 font-mono text-[11px]">
+            <div id="hSlabFieldWrap" class="opacity-45 pointer-events-none transition">
+              <label for="input_h_slab_mm" data-i18n="lbl_slab_depth" class="text-slate-400 block text-[10px] font-sans mb-0.5">Concrete Slab Thickness (h_slab)</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_h_slab_mm" value="200" step="10" min="50" max="2000" disabled class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onchange="commitNumberInput(this)" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_slab_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                    </button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_slab_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_track_support_mode" data-i18n="lbl_support_interface" class="text-slate-400 block text-[10px] font-sans mb-0.5">Track Bearing Interface</label>
+              <select id="input_track_support_mode" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:border-emerald-500 focus:outline-none" onchange="setTrackSupportMode(this.value)">
+                <option value="slab" data-i18n="support_direct_slab">Track on slab</option>
+                <option value="hardwood" data-i18n="support_hardwood">Hardwood block array</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="hardwoodControls" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-amber-900/50 pt-2 font-mono text-[11px]">
+            <div>
+              <label for="input_h_wood_mm" data-i18n="lbl_wood_height" class="text-amber-300 block text-[10px] font-sans mb-0.5">Hardwood Profile Height</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_h_wood_mm" value="100" step="10" min="10" max="500" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onchange="commitNumberInput(this)" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_wood_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg></button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_h_wood_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_w_wood_mm" data-i18n="lbl_wood_width" class="text-amber-300 block text-[10px] font-sans mb-0.5">Profile Width Along Rail</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_w_wood_mm" value="200" step="100" min="100" max="2000" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onchange="commitNumberInput(this)" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_w_wood_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg></button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_w_wood_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <label for="input_l_wood_mm" data-i18n="lbl_wood_length" class="text-amber-300 block text-[10px] font-sans mb-0.5">Block Length Across Track</label>
+              <select id="input_l_wood_mm" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-[11px] focus:outline-none" onchange="runAnalysis()">
+                <option value="1000">1000 mm</option>
+                <option value="1100">1100 mm</option>
+                <option value="1200">1200 mm</option>
+                <option value="1300" selected>1300 mm</option>
+                <option value="1400">1400 mm</option>
+                <option value="1500">1500 mm</option>
+                <option value="1600">1600 mm</option>
+              </select>
+            </div>
+            <div>
+              <label for="input_wood_count" data-i18n="lbl_wood_count" class="text-amber-300 block text-[10px] font-sans mb-0.5">Blocks per Rail</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_wood_count" value="5" step="1" min="1" max="20" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onchange="commitNumberInput(this)" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_wood_count', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg></button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_wood_count', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label for="input_wood_gap_mm" data-i18n="lbl_wood_gap" class="text-amber-300 block text-[10px] font-sans mb-0.5">Clear Gap</label>
+              <div class="flex items-center gap-1">
+                <div class="flex items-stretch w-full bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-emerald-500 transition">
+                  <input type="number" id="input_wood_gap_mm" value="200" step="10" min="0" max="2000" class="w-full px-1 py-1 bg-transparent text-center text-white focus:outline-none" oninput="runAnalysis()" onchange="commitNumberInput(this)" onblur="commitNumberInput(this)">
+                  <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-5 shrink-0 select-none">
+                    <button type="button" tabindex="-1" onclick="stepInput('input_wood_gap_mm', 1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg></button>
+                    <button type="button" tabindex="-1" onclick="stepInput('input_wood_gap_mm', -1)" class="flex-1 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-800 active:bg-slate-700 transition"><svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></button>
+                  </div>
+                </div>
+                <span class="text-slate-500 text-[10px]">mm</span>
+              </div>
+            </div>
+            <div>
+              <span data-i18n="lbl_wood_mass" class="text-amber-300 block text-[10px] font-sans mb-0.5">Timber Mass per Support</span>
+              <div id="disp_wood_mass_kg" class="px-2 py-1 bg-slate-950/60 border border-slate-800 rounded-lg text-center text-amber-200 font-bold" title="Calculated automatically from block volume and selected wood density">91 kg</div>
+            </div>
+            <div class="col-span-full">
+              <label for="input_wood_grade" data-i18n="lbl_wood_grade" class="text-amber-300 block text-[10px] font-sans mb-0.5">Timber Grade Perpendicular to Grain (EN 1995-1-1 f_c,90,d)</label>
+              <select id="input_wood_grade" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-[11px] focus:border-emerald-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="C24" data-i18n="wood_grade_c24">C24 Softwood (f_c,90,k = 2.5 MPa, ρ = 420 kg/m³)</option>
+                <option value="D30" data-i18n="wood_grade_d30">D30 Hardwood (f_c,90,k = 8.0 MPa, ρ = 640 kg/m³)</option>
+                <option value="D40" data-i18n="wood_grade_d40" selected>D40 Oak / Azobe Std (f_c,90,k = 8.8 MPa, ρ = 700 kg/m³)</option>
+                <option value="D70" data-i18n="wood_grade_d70">D70 Ekki / Azobe Heavy (f_c,90,k = 13.5 MPa, ρ = 900 kg/m³)</option>
+              </select>
+            </div>
+            <p id="woodLengthWarning" class="hidden col-span-full text-[10px] text-rose-300 font-sans"></p>
+            <p id="woodArraySummary" class="col-span-full text-[10px] text-amber-200/80 font-sans">Provisional layout; verify hardwood dimensions and spacing for the lift plan.</p>
+          </div>
+
+          <!-- 45-degree Ground Load Dispersion Formula Card -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 font-mono text-[11px]">
+            <div class="flex items-center justify-between">
+              <span data-i18n-html="lbl_long_spread" class="text-slate-400">Longitudinal 45&deg; Spread (L_eff):</span>
+              <span id="disp_L_eff" class="font-bold text-emerald-400 text-xs">2690 mm</span>
+            </div>
+            <p class="text-[10px] text-slate-500">
+              <span id="formula_disp_prefix">L_eff = L_base + 2&middot;h_track =</span> <span id="formula_disp_calc" class="text-slate-300">2090 + 2(300) = 2690 mm</span>
+            </p>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-900">
+              <span data-i18n="lbl_trans_width" class="text-slate-400">Transverse Width (W_eff = W_track):</span>
+              <span id="disp_W_eff" class="font-bold text-sky-300 text-xs">1225 mm (0&deg; Lateral)</span>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800/80">
+              <span data-i18n="lbl_eff_area" class="text-slate-300 font-sans font-medium">Effective Bearing Area (A_eff):</span>
+              <span id="disp_A_eff" class="font-bold text-emerald-300 text-xs">3.295 m&sup2;</span>
+            </div>
+          </div>
+
+          <!-- Allowable Floor Bearing Limit (q_allowable) & Limit-State Basis -->
+          <div>
+            <div class="flex justify-between items-center mb-1 gap-2">
+              <label for="input_allowable_q" data-i18n-html="lbl_allowable_q" class="font-medium text-slate-300">Allowable Slab Bearing Limit <span class="text-amber-400 font-mono">(q_allowable)</span></label>
+              <div class="font-mono text-slate-400 shrink-0">
+                <span id="label_allowable_q_val" class="font-bold text-amber-300 text-sm">250</span> kN/m&sup2;
+              </div>
+            </div>
+            <div class="mb-1.5">
+              <label for="input_q_basis" data-i18n="lbl_q_basis" class="text-[10px] text-slate-400 block mb-0.5 font-sans">Slab Bearing Basis (EN 1990 / DIN 1054)</label>
+              <select id="input_q_basis" class="w-full px-2 py-1 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-[11px] focus:border-emerald-500 focus:outline-none" onchange="runAnalysis()">
+                <option value="working" data-i18n="q_basis_working" selected>Working / Characteristic q_adm (1.00&times;)</option>
+                <option value="uls" data-i18n="q_basis_uls">Eurocode ULS Design q_Rd (1.35G + 1.50Q)</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-3">
+              <input type="range" id="range_allowable_q" min="5" max="1000" step="5" value="250" class="w-full h-1.5 bg-slate-800 rounded-lg cursor-pointer" oninput="syncParam('allowable_q', this.value, 'range')">
+              <div class="flex items-stretch w-28 shrink-0 bg-slate-950 border border-slate-700 rounded-lg overflow-hidden focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500/30 transition">
+                <input type="number" id="input_allowable_q" value="250" step="5" min="5" max="3000" class="w-full px-2 py-1 bg-transparent text-center font-mono text-amber-300 text-xs focus:outline-none" oninput="syncParam('allowable_q', this.value, 'typing')" onchange="syncParam('allowable_q', this.value, 'commit')" onblur="syncParam('allowable_q', this.value, 'commit')">
+                <div class="flex flex-col border-l border-slate-800 bg-slate-900/90 w-6 shrink-0 select-none">
+                  <button type="button" tabindex="-1" onclick="stepInput('input_allowable_q', 1, 'allowable_q')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition border-b border-slate-800/80" title="Increase Limit">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button type="button" tabindex="-1" onclick="stepInput('input_allowable_q', -1, 'allowable_q')" class="flex-1 flex items-center justify-center text-slate-400 hover:text-amber-400 hover:bg-slate-800 active:bg-slate-700 transition" title="Decrease Limit">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <button type="button" data-i18n-html="btn_slab_light" onclick="syncParam('allowable_q', 30)" class="hover:text-amber-300 underline">Light Slab (30 kN/m&sup2;)</button>
+              <button type="button" data-i18n-html="btn_slab_ind" onclick="syncParam('allowable_q', 150)" class="hover:text-amber-300 underline">Industrial (150 kN/m&sup2;)</button>
+              <button type="button" data-i18n-html="btn_slab_reinf" onclick="syncParam('allowable_q', 250)" class="hover:text-amber-300 underline">Reinforced (250 kN/m&sup2;)</button>
+            </div>
+          </div>
+
+          <!-- Separated Track & 45° Longitudinal Dispersion Schematic (Section 3 Inputs Only) -->
+          <div class="pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between mb-1.5">
+              <span data-i18n-html="track_svg_card_title" class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Gantry Track Schematic (Frontal 0&deg; &amp; Longitudinal 45&deg;)</span>
+              <span id="trackUnitBadge" class="schematic-badge">0&deg; FRONTAL / 45&deg; LONG.</span>
+            </div>
+            <div class="schematic-sheet w-full overflow-x-auto overflow-y-hidden rounded-lg border relative select-none">
+              <svg id="trackUnitSvg" class="schematic-svg w-full" viewBox="0 0 460 270" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <pattern id="trackConcreteHatch" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <path d="M-2,2 L2,-2 M0,8 L8,0 M6,10 L10,6" stroke="#94a3b8" stroke-width="0.8" />
+                  </pattern>
+                </defs>
+                <rect class="drawing-sheet" x="6" y="6" width="448" height="258" />
+                <g id="trackUnitLayer"></g>
+              </svg>
+              <div class="schematic-status flex items-center justify-between gap-2 px-2.5 py-1.5 font-mono text-[9.5px]">
+                <span id="trackUnitDimensionSummary">Frontal: W_eff = contact width (0&deg;) &bull; Longitudinal: spread through slab depth (45&deg;)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: 3-Tier Gating Cards, Interactive Schematic, SFD/BMD & Verification Table (7 cols) -->
+    <div class="lg:col-span-7 space-y-4">
+
+      <!-- Real-Time Structural Violation / Matting Requirement Banner -->
+      <div id="mattingAlert" class="hidden p-3.5 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 transition shadow-lg">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="text-xs space-y-0.5">
+          <p data-i18n-html="alert_matting_title" class="font-bold uppercase tracking-wider text-rose-300">Tier 3 Slab Bearing Violation &mdash; Load-Spreading Mats Required</p>
+          <p id="mattingAlertText" class="text-slate-200 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- Dynamic Asymmetry Warning Banner -->
+      <div id="imbalanceAlert" class="hidden p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 flex items-start gap-3 transition">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="text-xs space-y-0.5">
+          <p data-i18n="alert_imbalance_title" class="font-bold uppercase tracking-wider text-amber-300">Eccentric Load Distribution Warning</p>
+          <p id="imbalanceText" class="text-slate-300 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- Beam Stock Span Overrun Banner (Solution 1) -->
+      <div id="spanOverrunAlert" class="hidden p-3.5 rounded-xl border border-rose-500/50 bg-rose-950/40 text-rose-200 flex items-start gap-3 transition">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="text-xs space-y-0.5">
+          <p data-i18n="alert_span_title" class="font-bold uppercase tracking-wider text-rose-300">Header Beam Stock Length Exceeded</p>
+          <p id="spanOverrunText" class="text-slate-200 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- Lateral Side-Pull & Overturning Stability Banner (Solution 2) -->
+      <div id="stabilityAlert" class="hidden p-3.5 rounded-xl border border-amber-500/50 bg-amber-950/40 text-amber-200 flex items-start gap-3 transition">
+        <svg class="w-5 h-5 mt-0.5 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <div class="text-xs space-y-0.5">
+          <p data-i18n="alert_stability_title" class="font-bold uppercase tracking-wider text-amber-300">2006/42/EC Lateral Stability / Core Eccentricity Alert</p>
+          <p id="stabilityAlertText" class="text-slate-200 leading-relaxed"></p>
+        </div>
+      </div>
+
+      <!-- TIER 1: Lifting Beam Safe Capacity Ceiling Card -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl print-card">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+            <h3 data-i18n="tier1_card_title" class="text-xs font-bold uppercase tracking-wider text-white">Tier 1: Lifting Beam Safe Capacity Ceiling</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="no-print flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono">
+              <button type="button" id="btnTier1Reaction" onclick="setTier1Basis('crown')" class="px-2 py-0.5 rounded bg-sky-700 text-white font-semibold transition" title="Spec Sec 4 Tier 1: max(F_crown,A, F_crown,B) <= Capacity_beam_rated">max(F_crown)</button>
+              <button type="button" id="btnTier1Payload" data-i18n="btn_total_pdyn" onclick="setTier1Basis('payload')" class="px-2 py-0.5 rounded text-slate-400 hover:text-white transition" title="Total Factored Payload P_dyn <= Capacity_beam_rated">Total P_dyn</button>
+            </div>
+            <span id="badgeBeamCap" class="font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+              PASS (15% Utilized)
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs mt-3">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span data-i18n="tile_peak_crown" class="text-slate-500 block text-[10px] uppercase font-sans">Peak Crown Force</span>
+            <span id="card_beam_crown_max_kN" class="text-sky-400 font-bold text-sm">351.0 kN</span>
+            <span id="card_beam_crown_max_kg" class="text-slate-400 block text-[10px]">35,793 kg (max end)</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span data-i18n="tile_factored_hook" class="text-slate-500 block text-[10px] uppercase font-sans">Factored Hook (P_dyn)</span>
+            <span id="card_beam_factored_kN" class="text-amber-400 font-bold text-sm">485.4 kN</span>
+            <span id="card_beam_factored_kg" class="text-slate-400 block text-[10px]">49,500 kg (&phi;=1.10)</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span data-i18n="tile_rated_swl" class="text-slate-500 block text-[10px] uppercase font-sans">Rated Beam SWL</span>
+            <span id="card_beam_max_kN" class="text-white font-bold text-sm">2255.5 kN</span>
+            <span id="card_beam_max_kg" class="text-slate-400 block text-[10px]">230,000 kg (230.0 t)</span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <span data-i18n="tile_reserve" class="text-slate-500 block text-[10px] uppercase font-sans">Reserve Margin</span>
+            <span id="card_beam_reserve_kN" class="text-emerald-400 font-bold text-sm">+1904.5 kN</span>
+            <span id="card_beam_reserve_kg" class="text-slate-400 block text-[10px]">+194,207 kg buffer</span>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+            <div id="barBeamUtil" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 16%"></div>
+          </div>
+          <div class="flex justify-between items-center text-[10px] text-slate-400 mt-1.5 font-mono">
+            <span id="tier1CheckFormulaLabel">Check: max(F_crown,A, F_crown,B) &le; Capacity_beam_rated</span>
+            <span id="tier1SpanCheckLabel" class="text-slate-400">Span: OK</span>
+          </div>
+        </div>
+
+        <!-- EN 1993-1-1 / EN 13001-3-1 Flexural & LTB Verification Strip (Solution 1 + Solution 3) -->
+        <div class="mt-3 p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 font-mono text-[11px]">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span data-i18n="tier1_ltb_title" class="text-slate-300 font-sans font-semibold text-xs">ULS Bending &amp; LTB Check (EN 1993-1-1, &gamma;_f = 1.35G / 1.50Q)</span>
+            <span id="badgeLtbUtil" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">PASS (0%)</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-[10px] text-slate-400">
+            <div><span data-i18n="lbl_m_ed">Design M_Ed:</span> <span id="val_M_Ed" class="text-sky-300 font-bold">0.0 kNm</span></div>
+            <div><span data-i18n="lbl_mb_rd">LTB Resist. M_b,Rd:</span> <span id="val_Mb_Rd" class="text-white font-bold">0.0 kNm</span></div>
+            <div class="text-right"><span data-i18n="lbl_chi_lt">Reduction &chi;_LT:</span> <span id="val_chi_LT" class="text-amber-300 font-bold">1.00</span></div>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden border border-slate-800">
+            <div id="barLtbUtil" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIER 2: Gantry Cylinder Extension Check (Option A vs Option B) -->
+      <div id="gantryCapacityCard" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl transition print-card">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+            <h3 data-i18n="tier2_card_title" class="text-xs font-bold uppercase tracking-wider text-white">Tier 2: Gantry Cylinder Extension Check (2-Point Rating)</h3>
+          </div>
+          <span id="badgeGantryStage" class="font-mono text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+            PASS (Stage 1)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <!-- Tower A Stage Check -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span data-i18n="tower_a_crown_lbl" class="font-bold text-sky-400">Tower A Crown Reaction (F_crown,A)</span>
+              <span id="val_util_tower_A" class="font-mono font-bold text-white">0%</span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono text-xs">
+              <span class="text-slate-400"><span data-i18n="lbl_applied">Applied:</span> <span id="val_tower_applied_A" class="text-white font-bold">0 kN (0 kg)</span></span>
+              <span class="text-slate-400"><span data-i18n="lbl_2pt_cap">2-Pt Cap:</span> <span id="val_tower_limit_A" class="text-indigo-400 font-bold">0 kN</span></span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="barTowerA" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Tower B Stage Check -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span data-i18n="tower_b_crown_lbl" class="font-bold text-indigo-400">Tower B Crown Reaction (F_crown,B)</span>
+              <span id="val_util_tower_B" class="font-mono font-bold text-white">0%</span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono text-xs">
+              <span class="text-slate-400"><span data-i18n="lbl_applied">Applied:</span> <span id="val_tower_applied_B" class="text-white font-bold">0 kN (0 kg)</span></span>
+              <span class="text-slate-400"><span data-i18n="lbl_2pt_cap">2-Pt Cap:</span> <span id="val_tower_limit_B" class="text-indigo-400 font-bold">0 kN</span></span>
+            </div>
+            <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div id="barTowerB" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2006/42/EC Lateral Side-Pull & Synchronized Out-of-Level Summary (Solutions 2 & 5) -->
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[10px]">
+          <div class="flex justify-between sm:block">
+            <span data-i18n="lbl_horiz_force" class="text-slate-400 block font-sans">Side-Pull / Skew (H_lat):</span>
+            <span id="disp_H_horiz" class="text-amber-300 font-bold">0.0 kN / tower</span>
+          </div>
+          <div class="flex justify-between sm:block">
+            <span data-i18n="lbl_stab_core" class="text-slate-400 block font-sans">Core Eccentricity (e_tot):</span>
+            <span id="disp_stability_ratio" class="text-emerald-400 font-bold">0% of half-base</span>
+          </div>
+          <div class="flex justify-between sm:block">
+            <span data-i18n="lbl_sync_tol_span" class="text-slate-400 block font-sans">Max Span Out-of-Level:</span>
+            <span id="disp_level_span" class="text-sky-300 font-bold">&plusmn;16.0 mm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIER 3: Floor & Slab Bearing Stress Check (Strictly kN/m²) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <!-- Track A Floor Pressure -->
+        <div id="cardGaugeA" class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between shadow-xl print-card">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-sky-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                <span data-i18n="tier3_track_a_title">Tier 3: Track A Bearing Pressure</span>
+              </span>
+              <span id="badgeUtilA" class="font-mono text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                0%
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono">
+              <span data-i18n="lbl_actual_stress_a" class="text-xs text-slate-400">Actual Contact Stress (q_A):</span>
+              <span id="val_q_A" class="text-2xl font-bold text-white">0.0 <span class="text-xs text-sky-400 font-sans">kN/m&sup2;</span></span>
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 mt-1 flex justify-between">
+              <span data-i18n="lbl_cum_base_a">Cumulative Base Force (F_base,A):</span>
+              <span id="disp_F_base_A" class="text-white font-bold">0.0 kN (0 kg)</span>
+            </div>
+            <div class="text-[10px] font-mono text-slate-400 mt-0.5 flex justify-between">
+              <span data-i18n="lbl_q_peak_a">Skew Edge Peak (q_peak,A):</span>
+              <span id="disp_q_peak_A" class="text-amber-300 font-bold">0.0 kN/m&sup2;</span>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div id="barUtilA" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-1.5">
+              <span>0 kN/m&sup2;</span>
+              <span id="label_gauge_limit_A">Allowable: 250 kN/m&sup2;</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track B Floor Pressure -->
+        <div id="cardGaugeB" class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 flex flex-col justify-between shadow-xl print-card">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-indigo-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                <span data-i18n="tier3_track_b_title">Tier 3: Track B Bearing Pressure</span>
+              </span>
+              <span id="badgeUtilB" class="font-mono text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                0%
+              </span>
+            </div>
+            <div class="flex justify-between items-baseline font-mono">
+              <span data-i18n="lbl_actual_stress_b" class="text-xs text-slate-400">Actual Contact Stress (q_B):</span>
+              <span id="val_q_B" class="text-2xl font-bold text-white">0.0 <span class="text-xs text-indigo-400 font-sans">kN/m&sup2;</span></span>
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 mt-1 flex justify-between">
+              <span data-i18n="lbl_cum_base_b">Cumulative Base Force (F_base,B):</span>
+              <span id="disp_F_base_B" class="text-white font-bold">0.0 kN (0 kg)</span>
+            </div>
+            <div class="text-[10px] font-mono text-slate-400 mt-0.5 flex justify-between">
+              <span data-i18n="lbl_q_peak_b">Skew Edge Peak (q_peak,B):</span>
+              <span id="disp_q_peak_B" class="text-amber-300 font-bold">0.0 kN/m&sup2;</span>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <div class="w-full bg-slate-950 rounded-full h-2.5 overflow-hidden border border-slate-800">
+              <div id="barUtilB" class="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-1.5">
+              <span>0 kN/m&sup2;</span>
+              <span id="label_gauge_limit_B">Allowable: 250 kN/m&sup2;</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIER 3B: Hardwood Crushing Perpendicular to Grain Check (EN 1995-1-1 § 6.1.5) -->
+      <div id="timberCrushingCard" class="hidden bg-slate-900/90 rounded-2xl p-4 border border-amber-800/60 shadow-xl print-card space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span class="font-bold text-amber-300 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span data-i18n="timber_card_title">Tier 3B: Hardwood Crushing &perp; Grain (EN 1995-1-1 Steel-to-Timber Contact)</span>
+          </span>
+          <span id="badgeTimberCrush" class="font-mono text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">0%</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 font-mono text-[11px]">
+          <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
+            <span data-i18n="lbl_sigma_c90" class="text-slate-400 block text-[10px] font-sans">Peak Timber Stress (&sigma;_c,90,Ed):</span>
+            <span id="val_sigma_c90" class="text-white font-bold">0 kN/m&sup2;</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
+            <span data-i18n="lbl_fc90d" class="text-slate-400 block text-[10px] font-sans">Design Limit (f_c,90,d):</span>
+            <span id="val_fc90d" class="text-amber-300 font-bold">6,092 kN/m&sup2;</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950 border border-slate-800">
+            <span data-i18n="lbl_rail_timber_area" class="text-slate-400 block text-[10px] font-sans">Rail–Timber Area:</span>
+            <span id="val_rail_timber_area" class="text-sky-300 font-bold">1.225 m&sup2;</span>
+          </div>
+        </div>
+        <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+          <div id="barTimberCrush" class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- 1) Free-Body Structural Schematic (Frontal Portal View • Zero Transverse Spread) -->
+      <div id="portalSchematicCard" class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl print-card print-break">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <h3 data-i18n-html="svg_card_title" class="text-xs font-bold uppercase tracking-wider text-white">Free-Body Structural Schematic (Frontal View) &bull; 0&deg; Transverse Spread</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="schematic-badge">CAD / FRONTAL ELEVATION / mm</span>
+          </div>
+        </div>
+
+        <div class="schematic-sheet w-full overflow-x-auto overflow-y-hidden rounded-lg border relative select-none">
+          <svg id="gantrySvg" class="schematic-svg w-full" viewBox="0 0 800 450" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="soilHatch" width="8" height="8" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="8" x2="8" y2="0" stroke="#aeb8c2" stroke-width="1" />
+              </pattern>
+              <marker id="arrowUpSky" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 10 L 5 0 L 10 10 z" fill="#1f2937" />
+              </marker>
+              <marker id="arrowUpIndigo" viewBox="0 0 10 10" refX="5" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 10 L 5 0 L 10 10 z" fill="#1f2937" />
+              </marker>
+              <marker id="arrowDownAmber" viewBox="0 0 10 10" refX="5" refY="10" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 5 10 L 10 0 z" fill="#1f2937" />
+              </marker>
+            </defs>
+
+            <rect class="drawing-sheet" x="8" y="8" width="784" height="434" />
+            <!-- Foundation & Concrete Slab Interface -->
+            <rect x="0" y="330" width="800" height="60" fill="url(#soilHatch)" />
+            <line x1="0" y1="330" x2="800" y2="330" stroke="#475569" stroke-width="2" />
+
+            <!-- Dynamic SVG elements drawn by JS -->
+            <g id="svgLayer"></g>
+          </svg>
+          <div class="schematic-status flex flex-wrap items-center justify-between gap-2 px-3 py-2 font-mono text-[10px]">
+            <span id="svgDimensionSummary">Frontal View: W_eff = contact width (0&deg; lateral spread) &bull; Longitudinal: 45&deg; spread through slab</span>
+            <span id="svgConfigBadge">CONFIG 1: SINGLE HOOK</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Internal Forces: Bending Moment & Shear Force Diagram (60 Equidistant Intervals) -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl print-card print-break">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800 mb-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <h3 data-i18n-html="chart_card_title" class="text-xs font-bold uppercase tracking-wider text-white">Internal Beam Forces (Sec 2.3 &bull; 60 Intervals)</h3>
+            <span class="text-xs font-mono text-sky-400 font-semibold" id="label_M_max_val">M_max: 0.0 kNm</span>
+            <span class="text-xs font-mono text-amber-400 font-semibold" id="label_V_max_val">V_max: 0.0 kN</span>
+          </div>
+
+          <div class="flex bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-xs no-print">
+            <button id="btnTabBMD" data-i18n="btn_tab_bmd" onclick="switchDiagramTab('bmd')" class="px-3 py-1 rounded bg-sky-600 text-white font-medium transition">Bending Moment M(x)</button>
+            <button id="btnTabSFD" data-i18n="btn_tab_sfd" onclick="switchDiagramTab('sfd')" class="px-3 py-1 rounded text-slate-400 hover:text-white font-medium transition">Shear Force V(x)</button>
+          </div>
+        </div>
+
+        <div class="h-48 w-full relative">
+          <canvas id="internalForceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Structural Verification & Progressive Deadweight Accumulation Table -->
+      <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl print-card print-break">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3">
+          <h3 data-i18n-html="table_card_title" class="text-xs font-bold uppercase tracking-wider text-white">Progressive Load Accumulation &amp; Equilibrium Breakdown</h3>
+          <span class="text-[11px] font-mono text-slate-400">&Sigma;F_z = 0 &bull; g = 9.80665 m/s&sup2;</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                <th data-i18n="th_level" class="py-2 px-2.5">Structural Level / Parameter</th>
+                <th data-i18n="th_tower_a" class="py-2 px-2 text-right">Tower A (Left)</th>
+                <th data-i18n="th_tower_b" class="py-2 px-2 text-right">Tower B (Right)</th>
+                <th data-i18n="th_total" class="py-2 px-2 text-right">Total System</th>
+                <th data-i18n="th_rule" class="py-2 px-2.5 text-right">Reference / Rule</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/80 font-mono text-[11px]">
+              <tr>
+                <td class="py-2.5 px-2.5 font-sans text-slate-300"><span data-i18n="tr_dyn_hook">Dynamic Hook Load</span> (P_dyn = P &middot; &phi; = <span class="tb_phi_tag text-sky-400">1.10</span>)</td>
+                <td class="py-2.5 px-2 text-right text-amber-300" id="tb_hook_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-amber-300" id="tb_hook_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-white font-bold" id="tb_hook_tot">0.0 kN</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400" id="tb_hook_rule">R_hook,A / R_hook,B</td>
+              </tr>
+              <tr>
+                <td data-i18n="tr_beam_dw" class="py-2.5 px-2.5 font-sans text-slate-300">Header Lifting Beam Deadweight (W_beam)</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_beam_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_beam_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_beam_tot">0.0 kN</td>
+                <td data-i18n="tr_beam_rule" class="py-2.5 px-2.5 text-right text-slate-400">UDL Split (W_beam / 2)</td>
+              </tr>
+              <tr class="bg-sky-950/25 font-semibold text-sky-300">
+                <td data-i18n="tr_crown_react" class="py-2.5 px-2.5 font-sans">Total Crown Reaction Force (F_crown)</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right" id="tb_crown_react_tot">0.0 kN</td>
+                <td data-i18n-html="tr_crown_rule" class="py-2.5 px-2.5 text-right text-sky-400">Tier 1 &amp; Tier 2 Input</td>
+              </tr>
+              <tr>
+                <td data-i18n-html="tr_crown_dw" class="py-2.5 px-2.5 font-sans text-slate-300">Side-Shift &amp; Swivel Mass (W_shift)</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_crown_wt_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_crown_wt_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_crown_wt_tot">0.0 kN</td>
+                <td data-i18n="tr_crown_dw_rule" class="py-2.5 px-2.5 text-right text-slate-400">Top Swivel &amp; Side-Shift</td>
+              </tr>
+              <tr>
+                <td data-i18n-html="tr_tower_dw" class="py-2.5 px-2.5 font-sans text-slate-300">Gantry Telescopic Leg &amp; Base (W_tracks_tower)</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_gantry_unit_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_gantry_unit_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_gantry_unit_tot">0.0 kN</td>
+                <td data-i18n="tr_tower_dw_rule" class="py-2.5 px-2.5 text-right text-slate-400">Tower Self-Weight</td>
+              </tr>
+              <tr>
+                <td id="tb_track_wt_label" data-i18n="tr_track_dw" class="py-2.5 px-2.5 font-sans text-slate-300">Gantry Track Section Weight (W_track_unit)</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_track_wt_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-slate-300" id="tb_track_wt_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right text-white" id="tb_track_wt_tot">0.0 kN</td>
+                <td id="tb_track_wt_rule" data-i18n="tr_track_dw_rule" class="py-2.5 px-2.5 text-right text-slate-400">Track Self-Weight</td>
+              </tr>
+              <tr class="bg-amber-950/25 font-bold text-amber-300">
+                <td data-i18n="tr_base_force" class="py-2.5 px-2.5 font-sans">Cumulative Vertical Base Force (F_base)</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_A">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_B">0.0 kN</td>
+                <td class="py-2.5 px-2 text-right" id="tb_base_tot">0.0 kN</td>
+                <td data-i18n="tr_base_rule" class="py-2.5 px-2.5 text-right text-amber-400">Sec 3.1 Foundation Load</td>
+              </tr>
+              <tr class="text-slate-200">
+                <td data-i18n="tr_eff_area" class="py-2.5 px-2.5 font-sans font-medium">Effective Bearing Contact Area (A_eff)</td>
+                <td class="py-2.5 px-2 text-right font-bold text-emerald-400" id="tb_area_A">0.000 m&sup2;</td>
+                <td class="py-2.5 px-2 text-right font-bold text-emerald-400" id="tb_area_B">0.000 m&sup2;</td>
+                <td class="py-2.5 px-2 text-right text-slate-400" id="tb_area_tot">0.000 m&sup2;</td>
+                <td class="py-2.5 px-2.5 text-right text-slate-400 font-sans" id="tb_dims_label">0 &times; 0 mm</td>
+              </tr>
+              <tr class="bg-slate-950 font-bold">
+                <td data-i18n="tr_actual_press" class="py-2.5 px-2.5 font-sans text-white">Actual Ground Contact Stress (q_actual)</td>
+                <td class="py-2.5 px-2 text-right text-sm" id="tb_press_A">0.0 kN/m&sup2;</td>
+                <td class="py-2.5 px-2 text-right text-sm" id="tb_press_B">0.0 kN/m&sup2;</td>
+                <td class="py-2.5 px-2 text-right text-slate-400">&mdash;</td>
+                <td class="py-2.5 px-2.5 text-right text-amber-300" id="tb_allow_label">Limit: 250 kN/m&sup2;</td>
+              </tr>
+              <tr>
+                <td data-i18n="tr_ltb_check" class="py-2 px-2.5 font-sans text-slate-300">Header Beam Bending / LTB (EN 1993-1-1)</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_ltb_med">0.0 kNm</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_ltb_mbrd">0.0 kNm</td>
+                <td class="py-2 px-2 text-right text-sky-300" id="tb_ltb_util">0%</td>
+                <td class="py-2 px-2.5 text-right text-slate-400 font-sans" id="tb_ltb_rule">M_Ed &le; M_b,Rd</td>
+              </tr>
+              <tr>
+                <td data-i18n="tr_edge_peak" class="py-2 px-2.5 font-sans text-slate-300">Skewing Edge Peak &amp; Core (q_peak)</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_qpeak_A">0.0 kN/m&sup2;</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_qpeak_B">0.0 kN/m&sup2;</td>
+                <td class="py-2 px-2 text-right text-amber-300" id="tb_h_tot">0.0 kN</td>
+                <td class="py-2 px-2.5 text-right text-slate-400 font-sans" id="tb_qpeak_rule">&alpha;_h = 0.05</td>
+              </tr>
+              <tr>
+                <td data-i18n="tr_timber_check" class="py-2 px-2.5 font-sans text-slate-300">Hardwood Crushing &perp; Grain (EN 1995-1-1)</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_timber_A">&mdash;</td>
+                <td class="py-2 px-2 text-right text-slate-300" id="tb_timber_B">&mdash;</td>
+                <td class="py-2 px-2 text-right text-amber-300" id="tb_timber_lim">&mdash;</td>
+                <td class="py-2 px-2.5 text-right text-slate-400 font-sans" id="tb_timber_rule">N/A (Direct Slab)</td>
+              </tr>
+              <tr>
+                <td data-i18n="tr_overall_gate" class="py-2.5 px-2.5 font-sans text-slate-400">Multi-Tier Overall Verification Gate</td>
+                <td class="py-2.5 px-2 text-right font-bold" id="tb_util_A">0%</td>
+                <td class="py-2.5 px-2 text-right font-bold" id="tb_util_B">0%</td>
+                <td class="py-2.5 px-2 text-right text-slate-400">&mdash;</td>
+                <td class="py-2.5 px-2.5 text-right font-bold" id="tb_final_status">PASS SAFE</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 6: Engineering Limitations & Boundary Conditions (ENG-WP-HGA-001) -->
+      <div class="bg-slate-900/70 rounded-2xl border border-slate-800/90 p-4 text-xs text-slate-400 space-y-2 print-card print-break">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <span class="font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span data-i18n-html="sec6_title">Engineering Limitations &amp; Boundary Conditions (ENG-WP-HGA-001 Sec 6)</span>
+          </span>
+          <span class="font-mono text-[10px] text-slate-500">EN 13001-2 / DIN 15018</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px] leading-relaxed">
+          <div data-i18n-html="sec6_lim1" class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">
+            <strong class="text-slate-200">1. Quasi-Static 2D Model:</strong> Models 2D planar equilibrium. Does not compute 3D lateral crabbing, track misalignments, side-pull, or wind forces.
+          </div>
+          <div data-i18n-html="sec6_lim2" class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">
+            <strong class="text-slate-200">2. Track Span Continuity:</strong> Assumes tracks are continuously supported by a flat slab. Spanning floor pits, trenches, or joints requires unsupported bridge analysis.
+          </div>
+          <div data-i18n-html="sec6_lim3" class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">
+            <strong class="text-slate-200">3. Rigid Base &amp; Zero Lateral Spread:</strong> Contact stress is evaluated as uniform average pressure (q = F / A_eff) with 45&deg; longitudinal and 0&deg; transverse dispersion.
+          </div>
+          <div data-i18n-html="sec6_lim4" class="p-2 rounded-lg bg-slate-950/60 border border-slate-800/60">
+            <strong class="text-slate-200">4. Sign-Off Requirement:</strong> Preliminary lift planning aid only; does not supersede stamped lift studies by a licensed Professional Engineer (PE / Pr&uuml;fingenieur).
+          </div>
+        </div>
+
+        <!-- Machinery Directive 2006/42/EC Pre-Lift Commissioning & Leveling Checklist (Solution 5) -->
+        <div class="pt-2 border-t border-slate-800 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span data-i18n="md_checklist_title" class="text-[11px] font-bold uppercase tracking-wider text-sky-300">2006/42/EC Pre-Lift Synchronization &amp; Sign-Off Checklist</span>
+            <span id="md_level_summary" class="font-mono text-[10px] text-slate-300">Span: &plusmn;16.0 mm | Shoe W_base: &plusmn;3.1 mm</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10.5px] text-slate-300">
+            <label class="flex items-start gap-2 p-1.5 rounded bg-slate-950/60 border border-slate-800/60 cursor-pointer">
+              <input type="checkbox" class="mt-0.5 accent-sky-500" />
+              <span data-i18n="md_chk_sync">Cylinder stroke &amp; travel synchronization within out-of-level limit (&Delta;z) verified.</span>
+            </label>
+            <label class="flex items-start gap-2 p-1.5 rounded bg-slate-950/60 border border-slate-800/60 cursor-pointer">
+              <input type="checkbox" class="mt-0.5 accent-sky-500" />
+              <span data-i18n="md_chk_rails">Track alignment, rail end-stops, and continuous full slab/timber support verified.</span>
+            </label>
+            <label class="flex items-start gap-2 p-1.5 rounded bg-slate-950/60 border border-slate-800/60 cursor-pointer">
+              <input type="checkbox" class="mt-0.5 accent-sky-500" />
+              <span data-i18n="md_chk_ltb">Header beam flange restraint, stock length, and sling verticality checked.</span>
+            </label>
+            <label class="flex items-start gap-2 p-1.5 rounded bg-slate-950/60 border border-slate-800/60 cursor-pointer">
+              <input type="checkbox" class="mt-0.5 accent-sky-500" />
+              <span data-i18n="md_chk_pe">Allowable slab bearing (q_adm / q_Rd) and PE / Prüfingenieur sign-off confirmed.</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Engineering Statics, Bilingual i18n & Inventory Engine (ENG-WP-HGA-001 Rev 3.0) -->
+  <script src="./js/app.js"></script>
+</body>
+</html>
